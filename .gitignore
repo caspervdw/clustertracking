@@ -37,3 +37,5 @@ MANIFEST
 
 #PyCharm
 .idea
+
+/doc/source/generated/*

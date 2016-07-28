@@ -9,11 +9,12 @@ except ImportError:
 
 from .find import find_clusters
 from .refine import refine_leastsq, train_leastsq
-from .artificial import SimulatedImage, CoordinateReader
 from .fitfunc import FitFunctions
 from .find_link import find_link
-from .motion import (diffusion_tensor, orientation_df, friction_tensor,
-                     diffusion_tensor_ci)
+from .preprocessing import lowpass
+from . import constraints
+from . import motion
+from . import artificial
 
 
 class IPythonStreamHandler(logging.StreamHandler):
