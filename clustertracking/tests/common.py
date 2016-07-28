@@ -17,7 +17,7 @@ def sort_positions(actual, expected):
 def assert_coordinates_close(actual, expected, atol):
     assert_equal(len(actual), len(expected))
     _, sorted_actual = sort_positions(actual, expected)
-    assert_allclose(sorted_actual, expected, atol)
+    assert_allclose(sorted_actual, expected, atol=atol)
 
 
 def assert_traj_equal(actual, expected):
