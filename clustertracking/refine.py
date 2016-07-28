@@ -1,0 +1,390 @@
+from __future__ import division, print_function, absolute_import
+
+import six
+import logging
+
+import numpy as np
+
+from .preprocessing import lowpass
+from .find import find_clusters
+from .masks import slice_image
+from .utils import (guess_pos_columns, validate_tuple, is_isotropic,
+                    obtain_size_columns, RefineException, ReaderCached)
+from .constraints import wrap_constraints
+from .fitfunc import FitFunctions, vect_to_params, vect_from_params
+from .display import display3d, show_feature, show_fit, show_feature3d
+
+from scipy.optimize import minimize
+
+from trackpy import refine as refine_com
+
+logger = logging.getLogger(__name__)
+
+
+def prepare_subimage(coords, image, radius, noise_size=None, threshold=None):
+    ndim = image.ndim
+    radius = validate_tuple(radius, ndim)
+    # slice region around cluster
+    im, origin = slice_image(coords, image, radius)
+    if origin is None:   # coordinates are out of image bounds
+        raise RefineException
+
+    # do lowpass filter
+    if noise_size is not None:
+        if threshold is None:
+            threshold = 0
+        im = lowpass(im, noise_size, threshold)
+
+    # include the edges where dist == 1 exactly
+    dist = [np.sum(((np.indices(im.shape).T - (coord - origin)) / radius)**2, -1) <= 1
+            for coord in coords]
+
+    # to mask the image
+    mask_total = np.any(dist, axis=0).T
+    # to mask the masked image
+    masks_singles = np.empty((len(coords), mask_total.sum()), dtype=np.bool)
+    for i, _dist in enumerate(dist):
+        masks_singles[i] = _dist.T[mask_total]
+
+    # create the coordinates
+    mesh = np.indices(im.shape, dtype=np.float64)[:, mask_total]
+    # translate so that coordinates are in image coordinates
+    mesh += np.array(origin)[:, np.newaxis]
+
+    return im[mask_total].astype(np.float64), mesh, masks_singles
+
+
+def prepare_subimages(coords, groups, frame_nos, reader, radius,
+                      noise_size=None, threshold=None):
+    # fast shortcut
+    if groups is None:
+        image, mesh, mask = prepare_subimage(coords, reader[frame_nos[0]],
+                                             radius, noise_size, threshold)
+        return [image], [mesh], [mask]
+
+    images = []
+    meshes = []
+    masks = []
+    for cl_inds in groups[0]:
+        frame_no = frame_nos[cl_inds[0]]
+        image, mesh, mask = prepare_subimage(coords[cl_inds], reader[frame_no],
+                                             radius, noise_size, threshold)
+        images.append(image)
+        meshes.append(mesh)
+        masks.append(mask)
+    return images, meshes, masks
+
+
+def refine_leastsq(f, reader, diameter, separation=None, fit_function='gauss',
+                   param_mode=None, param_val=None, constraints=None,
+                   bounds=None, pos_columns=None, t_column='frame',
+                   noise_size=None, threshold=None, max_iter=10, max_shift=1,
+                   max_rms_dev=1., residual_factor=100000., **kwargs):
+    """ Refines cluster coordinates using gaussian fits, returns generator
+    iterating over cluster IDs.
+
+    Parameters
+    ----------
+    f: DataFrame
+        pandas DataFrame containing coordinates of features
+        required columns: positions, 'signal', 'size', 'cluster', 'cluster_size'
+    reader: pims.Frame or pims.FramesSequence
+        pims.FrameSequence: object that returns an image when indexed
+    diameter: number or tuple
+        Determines mask size that is used on the image before fitting
+    constraints: dict
+        Contains constraints per cluster size in the form ``{2: <constraints>}``
+        These are described as follows (from scipy.optimize.minimize):
+
+            type : str
+                Constraint type: 'eq' for equality, 'ineq' for inequality.
+            fun : callable
+                The function defining the constraint.
+            jac : callable, optional
+                The Jacobian of `fun`
+            args : sequence, optional
+                Extra arguments to be passed to the function and Jacobian.
+
+        Equality constraint means that the constraint function result is to
+        be zero whereas inequality means that it is to be non-negative.
+    bounds: dict
+        Bounds on parameters, in the following forms:
+            - Absolute bounds ``{'x': [low, high]}``
+            - Difference bounds, one-sided ``{'x_diff': max_diff}``
+            - Difference bounds, two-sided ``{'x_diff': [max_diff_below,max_diff_above]}``
+            - Relative bounds, one-sided ``{'x_rel_diff': max_fraction_below}``
+            - Relative bounds, two-sided ``{'x_rel_diff': [max_fraction_below, max_fraction_above]}``
+        When the keyword `pos` is used, this will be distributed to all
+        pos_columns (but direct values of each positions will have precedence)
+        When the keyword `size` is used, this will be distributed to all sizes,
+        in the case of anisotropic sizes (also, direct values have precedence)
+    var_size: boolean, optional
+        Determines whether size is varied in fitting. Default False.
+    var_signal: boolean, optional
+        Determines whether signal is varied in fitting. Default False.
+    pos_columns: list of strings, optional
+        Column names that contain the position coordinates.
+        Defaults to ['y', 'x'] (or ['z', 'y', 'x'] if 'z' exists)
+    ignore_single: boolean, optional
+        Determines whether single particles are skipped. Default False.
+    noise_size: number, optional
+        Noise size used in lowpass filter. Default None.
+    threshold: number, optional
+        Threshold used in lowpass filter. Default None.
+    max_iter: int, optional
+        Max number of whole-pixel shifts in refine. Default 10.
+    max_shift: float, optional
+        Maximum satisfactory out-of-center distance. When the fitted gaussian
+        is more out of center, do extra iteration. Default 1.
+    tol: float, optional
+        Accuracy, default 0.01.
+    max_res : float, optional
+        Maximum root mean squared difference between the final fit and the
+        (preprocessed) image, in units of the image maximum value. Default 0.05.
+
+    Returns
+    -------
+    iterable of new coordinates per cluster of particles
+    added column 'cost': root mean squared difference between the final fit and
+        the (preprocessed) image, in units of the cluster maximum value
+    """
+    _kwargs = dict(method='SLSQP', tol=1E-6)
+    _kwargs.update(kwargs)
+    # Initialize variables
+    if pos_columns is None:
+        pos_columns = guess_pos_columns(f)
+
+    # Cache images
+    try:
+        # assume that the reader is a FramesSequence
+        ndim = len(reader.frame_shape)
+        logging = True
+    except AttributeError:
+        try:
+            ndim = reader.ndim
+        except AttributeError:
+            raise ValueError('For multiple frames, the reader should be a'
+                             'FramesSequence object exposing the "frame_shape"'
+                             'attribute')
+        # reader is a single Frame, wrap it using some logic for the frame_no
+        frame_no = None
+        if hasattr(reader, 'frame_no'):
+            if reader.frame_no is not None:
+                frame_no = int(reader.frame_no)
+
+        if frame_no is not None and t_column in f:
+            assert np.all(f['frame'] == frame_no)
+            reader = {frame_no: reader}
+        elif frame_no is not None:
+            reader = {frame_no: reader}
+            f[t_column] = frame_no
+        elif frame_no is None and t_column in f:
+            assert f[t_column].nunique() == 1
+            reader = {int(f[t_column].iloc[0]): reader}
+        else:
+            f[t_column] = 0
+            reader = {0: reader}
+        logging = False
+
+    assert ndim == len(pos_columns)
+
+    diameter = validate_tuple(diameter, ndim)
+    radius = tuple([x//2 for x in diameter])
+    isotropic = is_isotropic(diameter)
+    if separation is None:
+        separation = diameter
+
+    ff = FitFunctions(fit_function, ndim, isotropic, param_mode)
+
+    if constraints is None:
+        constraints = dict()
+
+    # Assign param_val to dataframe
+    if param_val is not None:
+        for col in param_val:
+            f[col] = param_val[col]
+    col_missing = set(ff.params) - set(f.columns)
+    for col in col_missing:
+        f[col] = ff.default[col]
+
+    bounds = ff.validate_bounds(bounds, radius=radius)
+
+    # makes a copy
+    f = find_clusters(f, separation, pos_columns, t_column)
+
+    # split the problem into smaller ones, depending on param_mode
+    modes = np.array(ff.modes)
+    if np.any(modes == 2):
+        level = 'global'
+        # there are globals, we cannot split the problem
+        iterable = [(None, f)]
+        id_names = ['cluster']
+        frames = dict()
+        norm = 0.
+        for i in f[t_column].unique():
+            i = int(i)
+            frame = reader[i]
+            frames[i] = frame
+            norm = max(norm, float(frame.max()))
+        norm = norm**2 / residual_factor
+        logger.info("Cached all frames")
+    elif np.all(modes <= 3):
+        level = 'cluster'
+        # no globals, no per particle / per frame
+        iterable = f.groupby(['frame', 'cluster'])  # ensure sorting per frame
+        id_names = None
+        frames = ReaderCached(reader)  # cache the last frame
+    else:
+        raise NotImplemented()
+
+    last_frame = None  # just for logging
+    for _, f_iter in iterable:
+        # extract the initial parameters from the dataframe
+        params = f_iter[ff.params].values
+        if id_names is None:
+            groups = None
+        else:
+            f_iter_temp = f_iter.reset_index()
+            groups = [list(f_iter_temp.groupby(col).indices.values()) for col in id_names]
+        frame_nos = f_iter[t_column].values
+
+        if level != 'global':
+            norm = float(frames[frame_nos[0]].max()) ** 2 / residual_factor
+        try:
+            if not np.isfinite(params).all():
+                raise RefineException
+            # extract the coordinates from the parameter array
+            coords = params[:, 2:2+ndim]
+            # transform the params into a vector for leastq optimization
+            vect = vect_from_params(params, ff.modes, groups, operation=np.mean)
+
+            f_constraints = wrap_constraints(constraints, params, ff.modes, groups)
+            f_bounds = ff.compute_bounds(bounds, params, groups)
+            for _n_iter in range(max_iter):
+                sub_images, meshes, masks = prepare_subimages(coords, groups,
+                                                              frame_nos, frames,
+                                                              radius, noise_size,
+                                                              threshold)
+                residual, jacobian = ff.get_residual(sub_images, meshes, masks,
+                                                     params, groups, norm)
+
+                result = minimize(residual, vect, bounds=f_bounds,
+                                  constraints=f_constraints, jac=jacobian,
+                                  **_kwargs)
+                if not result['success']:
+                    raise RefineException
+
+                rms_dev = np.sqrt(result['fun'] / residual_factor)
+                params = vect_to_params(result['x'], params, ff.modes, groups)
+
+                # check if found coords are MAX_SHIFT px from image center.
+                new_coords = params[:, 2:2+ndim]
+                if np.all(np.sum((new_coords - coords)**2, 1) < max_shift**2):
+                    break  # stop iteration: accept result
+
+                # set-up for next iteration
+                coords = new_coords
+
+            # check the final difference between fit and image
+            if rms_dev > max_rms_dev:
+                raise RefineException
+
+        except RefineException:
+            if level == 'global':
+                f['cost'] = np.nan
+            else:
+                f.loc[f_iter.index, 'cost'] = np.nan
+            status = 'failed'
+        else:
+            if level == 'global':
+                f[ff.params] = params
+                f['cost'] = rms_dev
+            else:
+                f.loc[f_iter.index, ff.params] = params
+                f.loc[f_iter.index, 'cost'] = rms_dev
+            status = 'success'
+
+        if level == 'global':
+            logger.info("Global refine {status}: {n} "
+                        "features.".format(status=status, n=len(f)))
+        elif level == 'cluster':
+            cluster_id = int(f_iter['cluster'].iloc[0])
+            logger.debug("Refine per cluster {status} in frame {frame_no}, "
+                         "cluster {cluster_id} of size "
+                         "{cluster_size}".format(status=status,
+                                                 frame_no=frame_nos[0],
+                                                 cluster_id=cluster_id,
+                                                 cluster_size=len(f_iter)))
+            if frame_nos[0] != last_frame:
+                last_frame = frame_nos[0]
+                mesg = "Finished refine per cluster in frame " \
+                       "{frame_no}".format(frame_no=last_frame)
+                if logging:
+                    logger.info(mesg)
+                else:
+                    logger.debug(mesg)
+
+    return f
+
+
+def train_leastsq(f, reader, diameter, separation, fit_function='poly4',
+                  param_mode=None, tol=1e-7, pos_columns=None, **kwargs):
+    """Obtain fit parameters from an image of features with equal size.
+    Different signal intensities per feature are allowed."""
+    try:
+        ndim = len(reader.frame_shape)
+    except AttributeError:
+        ndim = reader.ndim
+        reader_tp = [reader]
+        if 'frame' in f:
+            assert np.all(f['frame'].nunique() == 0)
+        else:
+            f['frame'] = 0
+    diameter = validate_tuple(diameter, ndim)
+    radius = tuple([d // 2 for d in diameter])
+    if pos_columns is None:
+        pos_columns = guess_pos_columns(f)
+    isotropic = is_isotropic(diameter)
+    size_columns = obtain_size_columns(isotropic, pos_columns)
+
+    # first, refine using center-of-mass
+    for frame_no, f_frame in f.groupby('frame'):
+        coords = f_frame[pos_columns].values
+        image = reader_tp[frame_no]
+        tp_result = refine_com(image, image, radius, coords)
+        pos = tp_result[:, ndim-1:None:-1]
+        if isotropic:
+            size = tp_result[:, ndim + 1]
+            signal = tp_result[:, ndim + 3]
+        else:
+            size = tp_result[:, ndim + 1:2*ndim + 1]
+            signal = tp_result[:, 2*ndim + 2]
+        f.loc[f_frame.index, pos_columns] = pos
+        f.loc[f_frame.index, 'signal'] = signal
+        f.loc[f_frame.index, size_columns] = size
+
+    if param_mode is None:
+        param_mode = dict()
+
+    ff = FitFunctions(fit_function, ndim, isotropic)
+    for param in ff.params:
+        if param in param_mode:
+            continue
+        if param in pos_columns + ['signal', 'background']:
+            param_mode[param] = 'const'
+        else:
+            param_mode[param] = 'global'
+
+    bounds = kwargs.pop('bounds', dict())
+    if bounds is None:
+        bounds = dict()
+    for size_col in size_columns:
+        if size_col + '_rel_diff' not in bounds:
+            bounds[size_col + '_rel_diff'] = (0.1, 10)
+
+    f = refine_leastsq(f, reader, diameter, separation,
+                       fit_function=fit_function, param_mode=param_mode,
+                       tol=tol, bounds=bounds, **kwargs)
+    assert np.isfinite(f['cost']).all()
+
+    return {p: f[p].mean() for p in param_mode if param_mode[p] == 'var_global'}
