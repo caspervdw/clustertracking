@@ -1,0 +1,25 @@
+clustertracking.fitfunc.FitFunctions
+====================================
+
+.. currentmodule:: clustertracking.fitfunc
+
+.. autoclass:: FitFunctions
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~FitFunctions.__init__
+      ~FitFunctions.compute_bounds
+      ~FitFunctions.get_residual
+      ~FitFunctions.validate_bounds
+   
+   
+
+   
+   
+   

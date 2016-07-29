@@ -1,0 +1,288 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>clustertracking.artificial.SimulatedImage &mdash; clustertracking 1.0 documentation</title>
+  
+
+  
+  
+
+  
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700,400italic,700italic|Roboto+Slab:400,700|Inconsolata:400,700&subset=latin,cyrillic' rel='stylesheet' type='text/css'>
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+    <link rel="top" title="clustertracking 1.0 documentation" href="../index.html"/> 
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/modernizr/2.6.2/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-nav-search">
+        
+          <a href="../index.html" class="fa fa-home"> clustertracking</a>
+        
+        
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+        
+          
+          
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../api.html">API reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#core-functionality">Core functionality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#constraints">Constraints</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#model-image-creation">Model image creation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#cluster-motion-analysis">Cluster motion analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#helper-functions">Helper functions</a></li>
+</ul>
+</li>
+</ul>
+
+          
+        
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../index.html">clustertracking</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../index.html">Docs</a> &raquo;</li>
+      
+    <li>clustertracking.artificial.SimulatedImage</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          <a href="../_sources/generated/clustertracking.artificial.SimulatedImage.txt" rel="nofollow"> View page source</a>
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document">
+            
+  <div class="section" id="clustertracking-artificial-simulatedimage">
+<h1>clustertracking.artificial.SimulatedImage<a class="headerlink" href="#clustertracking-artificial-simulatedimage" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="clustertracking.artificial.SimulatedImage">
+<em class="property">class </em><code class="descclassname">clustertracking.artificial.</code><code class="descname">SimulatedImage</code><span class="sig-paren">(</span><em>shape</em>, <em>size</em>, <em>dtype=&lt;class 'numpy.uint8'&gt;</em>, <em>saturation=None</em>, <em>hard_radius=None</em>, <em>signal=None</em>, <em>noise=0</em>, <em>feat_func=&lt;function feat_gauss at 0x000000000BA1CA60&gt;</em>, <em>**feat_kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/clustertracking/artificial.html#SimulatedImage"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#clustertracking.artificial.SimulatedImage" title="Permalink to this definition">¶</a></dt>
+<dd><p>This class makes it easy to generate artificial pictures.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>shape</strong> : tuple of int</p>
+<p><strong>dtype</strong> : numpy.dtype, default np.uint8</p>
+<p><strong>saturation</strong> : maximum value in image</p>
+<p><strong>hard_radius</strong> : default radius of particles, used for determining the</p>
+<blockquote>
+<div><p>distance between particles in clusters</p>
+</div></blockquote>
+<p class="last"><strong>feat_dict</strong> : dictionary of arguments passed to tp.artificial.draw_feature</p>
+</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Examples</p>
+<dl class="docutils">
+<dt>image = SimulatedImage(shape=(50, 50), dtype=np.uint8, hard_radius=7,</dt>
+<dd><dl class="first last docutils">
+<dt>feat_dict={&#8216;diameter&#8217;: 20, &#8216;max_value&#8217;: 100,</dt>
+<dd>&#8216;feat_func&#8217;: SimulatedImage.feat_hat,
+&#8216;disc_size&#8217;: 0.2})</dd>
+</dl>
+</dd>
+</dl>
+<p>image.draw_feature((10, 10))
+image.draw_dimer((32, 35), angle=75)
+image.add_noise(5)
+image()</p>
+<p class="rubric">Attributes</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="11%" />
+<col width="89%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td>image</td>
+<td>(ndarray containing pixel values)</td>
+</tr>
+<tr class="row-even"><td>center</td>
+<td>(the center [y, x] to use for radial coordinates)</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="clustertracking.artificial.SimulatedImage.__init__">
+<code class="descname">__init__</code><span class="sig-paren">(</span><em>shape</em>, <em>size</em>, <em>dtype=&lt;class 'numpy.uint8'&gt;</em>, <em>saturation=None</em>, <em>hard_radius=None</em>, <em>signal=None</em>, <em>noise=0</em>, <em>feat_func=&lt;function feat_gauss at 0x000000000BA1CA60&gt;</em>, <em>**feat_kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/clustertracking/artificial.html#SimulatedImage.__init__"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#clustertracking.artificial.SimulatedImage.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p class="rubric">Methods</p>
+<table border="1" class="longtable docutils">
+<colgroup>
+<col width="10%" />
+<col width="90%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><a class="reference internal" href="#clustertracking.artificial.SimulatedImage.__init__" title="clustertracking.artificial.SimulatedImage.__init__"><code class="xref py py-obj docutils literal"><span class="pre">__init__</span></code></a>(shape,&nbsp;size[,&nbsp;dtype,&nbsp;saturation,&nbsp;...])</td>
+<td></td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal"><span class="pre">clear</span></code>()</td>
+<td>Clears the current image</td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal"><span class="pre">denoised</span></code>(noise_level,&nbsp;noise_size[,&nbsp;...])</td>
+<td></td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal"><span class="pre">draw_cluster</span></code>(cluster_size[,&nbsp;center,&nbsp;angle,&nbsp;...])</td>
+<td>Draws a cluster of size <cite>n</cite> at <cite>pos</cite> with angle <cite>angle</cite>.</td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal"><span class="pre">draw_clusters</span></code>(N,&nbsp;cluster_size[,&nbsp;...])</td>
+<td>Draws N clusters at random locations, using minimum separation and a margin.</td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal"><span class="pre">draw_dimer</span></code>(pos,&nbsp;angle[,&nbsp;hard_radius])</td>
+<td>Draws a dimer at <cite>pos</cite> with angle <cite>angle</cite>.</td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal"><span class="pre">draw_dumbell</span></code>(pos,&nbsp;angle[,&nbsp;hard_radius])</td>
+<td>Draws a dimer at <cite>pos</cite> with angle <cite>angle</cite>.</td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal"><span class="pre">draw_feature</span></code>(pos)</td>
+<td>Draws a feature at <cite>pos</cite>.</td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal"><span class="pre">draw_feature_radial</span></code>(r,&nbsp;angle[,&nbsp;center])</td>
+<td>Draws a feature at radial coordinates <cite>r</cite>, <cite>angle</cite>.</td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal"><span class="pre">draw_features</span></code>(N[,&nbsp;separation,&nbsp;margin])</td>
+<td>Draws N features at random locations, using minimum separation and a margin.</td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal"><span class="pre">draw_triangle</span></code>(pos,&nbsp;angle[,&nbsp;hard_radius])</td>
+<td>Draws a trimer at <cite>pos</cite> with angle <cite>angle</cite>.</td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal"><span class="pre">draw_trimer</span></code>(pos,&nbsp;angle[,&nbsp;hard_radius])</td>
+<td>Draws a trimer at <cite>pos</cite> with angle <cite>angle</cite>.</td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal"><span class="pre">f</span></code>([noise])</td>
+<td></td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal"><span class="pre">noisy_image</span></code>(noise_level)</td>
+<td>Adds noise to the current image, uniformly distributed between 0 and <cite>noise_level</cite>, not including noise_level.</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Attributes</p>
+<table border="1" class="longtable docutils">
+<colgroup>
+<col width="10%" />
+<col width="90%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal"><span class="pre">coords</span></code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+
+
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2016, Casper van der Wel.
+    </p>
+  </div>
+
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+  
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../',
+            VERSION:'1.0',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../_static/jquery.js"></script>
+      <script type="text/javascript" src="../_static/underscore.js"></script>
+      <script type="text/javascript" src="../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

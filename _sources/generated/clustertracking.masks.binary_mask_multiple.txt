@@ -1,0 +1,6 @@
+clustertracking.masks.binary_mask_multiple
+==========================================
+
+.. currentmodule:: clustertracking.masks
+
+.. autofunction:: binary_mask_multiple

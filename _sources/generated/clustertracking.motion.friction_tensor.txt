@@ -1,0 +1,6 @@
+clustertracking.motion.friction_tensor
+======================================
+
+.. currentmodule:: clustertracking.motion
+
+.. autofunction:: friction_tensor

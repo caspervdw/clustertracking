@@ -1,0 +1,6 @@
+clustertracking.motion.orientation_df
+=====================================
+
+.. currentmodule:: clustertracking.motion
+
+.. autofunction:: orientation_df

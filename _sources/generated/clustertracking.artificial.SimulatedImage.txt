@@ -1,0 +1,41 @@
+clustertracking.artificial.SimulatedImage
+=========================================
+
+.. currentmodule:: clustertracking.artificial
+
+.. autoclass:: SimulatedImage
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~SimulatedImage.__init__
+      ~SimulatedImage.clear
+      ~SimulatedImage.denoised
+      ~SimulatedImage.draw_cluster
+      ~SimulatedImage.draw_clusters
+      ~SimulatedImage.draw_dimer
+      ~SimulatedImage.draw_dumbell
+      ~SimulatedImage.draw_feature
+      ~SimulatedImage.draw_feature_radial
+      ~SimulatedImage.draw_features
+      ~SimulatedImage.draw_triangle
+      ~SimulatedImage.draw_trimer
+      ~SimulatedImage.f
+      ~SimulatedImage.noisy_image
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~SimulatedImage.coords
+   
+   

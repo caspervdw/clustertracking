@@ -1,0 +1,6 @@
+clustertracking.artificial.get_dimer
+====================================
+
+.. currentmodule:: clustertracking.artificial
+
+.. autofunction:: get_dimer

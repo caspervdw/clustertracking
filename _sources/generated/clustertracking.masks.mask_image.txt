@@ -1,0 +1,6 @@
+clustertracking.masks.mask_image
+================================
+
+.. currentmodule:: clustertracking.masks
+
+.. autofunction:: mask_image

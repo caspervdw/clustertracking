@@ -1,0 +1,6 @@
+clustertracking.constraints.trimer
+==================================
+
+.. currentmodule:: clustertracking.constraints
+
+.. autofunction:: trimer

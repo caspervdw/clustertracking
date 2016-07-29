@@ -1,0 +1,6 @@
+clustertracking.constraints.tetramer
+====================================
+
+.. currentmodule:: clustertracking.constraints
+
+.. autofunction:: tetramer

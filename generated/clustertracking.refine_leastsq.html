@@ -1,0 +1,378 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>clustertracking.refine_leastsq &mdash; clustertracking 1.0 documentation</title>
+  
+
+  
+  
+
+  
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700,400italic,700italic|Roboto+Slab:400,700|Inconsolata:400,700&subset=latin,cyrillic' rel='stylesheet' type='text/css'>
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+    <link rel="top" title="clustertracking 1.0 documentation" href="../index.html"/> 
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/modernizr/2.6.2/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-nav-search">
+        
+          <a href="../index.html" class="fa fa-home"> clustertracking</a>
+        
+        
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+        
+          
+          
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../api.html">API reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#core-functionality">Core functionality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#constraints">Constraints</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#model-image-creation">Model image creation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#cluster-motion-analysis">Cluster motion analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#helper-functions">Helper functions</a></li>
+</ul>
+</li>
+</ul>
+
+          
+        
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../index.html">clustertracking</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../index.html">Docs</a> &raquo;</li>
+      
+    <li>clustertracking.refine_leastsq</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          <a href="../_sources/generated/clustertracking.refine_leastsq.txt" rel="nofollow"> View page source</a>
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document">
+            
+  <div class="section" id="clustertracking-refine-leastsq">
+<h1>clustertracking.refine_leastsq<a class="headerlink" href="#clustertracking-refine-leastsq" title="Permalink to this headline">¶</a></h1>
+<dl class="function">
+<dt id="clustertracking.refine_leastsq">
+<code class="descclassname">clustertracking.</code><code class="descname">refine_leastsq</code><span class="sig-paren">(</span><em>f</em>, <em>reader</em>, <em>diameter</em>, <em>separation=None</em>, <em>fit_function='gauss'</em>, <em>param_mode=None</em>, <em>param_val=None</em>, <em>constraints=None</em>, <em>bounds=None</em>, <em>pos_columns=None</em>, <em>t_column='frame'</em>, <em>noise_size=None</em>, <em>threshold=None</em>, <em>max_iter=10</em>, <em>max_shift=1</em>, <em>max_rms_dev=1.0</em>, <em>residual_factor=100000.0</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/clustertracking/refine.html#refine_leastsq"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#clustertracking.refine_leastsq" title="Permalink to this definition">¶</a></dt>
+<dd><p>Refines cluster coordinates by least-squares fitting to radial model
+functions.</p>
+<p>This does not raise an error if minimization failes. Instead, coordinates
+are unchanged and the added column <code class="docutils literal"><span class="pre">cost</span></code> will be <code class="docutils literal"><span class="pre">NaN</span></code>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>f</strong> : DataFrame</p>
+<blockquote>
+<div><p>pandas DataFrame containing coordinates of features.
+Required columns are positions. Any parameter that is not present should
+be either given in the <code class="docutils literal"><span class="pre">param_val</span></code> dict (e.g. &#8216;signal&#8217;, &#8216;size&#8217;) or be
+present in the <code class="docutils literal"><span class="pre">default</span></code> field of the used model function.</p>
+</div></blockquote>
+<p><strong>reader</strong> : pims.FramesSequence or ndarray</p>
+<blockquote>
+<div><p>FrameSequence: object that returns an image when indexed. It should
+provide the <code class="docutils literal"><span class="pre">frame_shape</span></code> attribute. If a FrameSequence is not given,
+a single image is assumed and all features that are present in <code class="docutils literal"><span class="pre">f</span></code> are
+assumed to be in that image.</p>
+</div></blockquote>
+<p><strong>diameter</strong> : number or tuple</p>
+<blockquote>
+<div><p>Determines the feature mask size that is used for the refinement</p>
+</div></blockquote>
+<p><strong>separation</strong> : number or tuple</p>
+<blockquote>
+<div><p>Determines the distance below which features are considered in the same
+cluster. By default, equals <code class="docutils literal"><span class="pre">diameter</span></code>. As the model feature function is
+only defined up to <code class="docutils literal"><span class="pre">diameter</span></code>, it only makes sense to change this
+parameter in some edge cases.</p>
+</div></blockquote>
+<p><strong>fit_function</strong> : {&#8216;gauss&#8217;, &#8216;ring&#8217;, &#8216;inv_series_&lt;number&gt;&#8217;} or dict, optional</p>
+<blockquote>
+<div><p>The shape of the used radial model function. Defaults to Gaussian.
+The ring model function is a displaced gaussian with parameter <code class="docutils literal"><span class="pre">thickness</span></code>.
+The <code class="docutils literal"><span class="pre">inv_series_&lt;number&gt;</span></code> model function is the inverse of an
+even polynomial containing <code class="docutils literal"><span class="pre">&lt;number&gt;</span></code> parameters
+(e.g. A / (1 + a r^2 + b r^4 + c r^2 + ...)</p>
+<p>Define your own model function with a dictionary, containing:</p>
+<blockquote>
+<div><dl class="docutils">
+<dt>params <span class="classifier-delimiter">:</span> <span class="classifier">list of str</span></dt>
+<dd><p class="first last">list of parameter names. has the same length as the <code class="docutils literal"><span class="pre">p</span></code> array
+in <code class="docutils literal"><span class="pre">func</span></code> and <code class="docutils literal"><span class="pre">dfunc</span></code></p>
+</dd>
+<dt>func <span class="classifier-delimiter">:</span> <span class="classifier">callable</span></dt>
+<dd><p class="first last">The image model function. It takes arguments <code class="docutils literal"><span class="pre">(r2,</span> <span class="pre">p,</span> <span class="pre">ndim)</span></code>,
+with <code class="docutils literal"><span class="pre">r2</span></code> being a 1d ndarray containing the squared reduced
+radial distances.
+(for isotropic, 2D: <code class="docutils literal"><span class="pre">((x</span> <span class="pre">-</span> <span class="pre">c_x)^2</span> <span class="pre">+</span> <span class="pre">(y</span> <span class="pre">-</span> <span class="pre">c_y)^2)</span> <span class="pre">/</span> <span class="pre">size^2</span></code>).
+<code class="docutils literal"><span class="pre">p</span></code> is a 1d array of parameters single feature parameters.
+<code class="docutils literal"><span class="pre">ndim</span></code> is the number of dimensions. Returns a 1d vector of the
+same size as <code class="docutils literal"><span class="pre">r2</span></code> containing intensity values, normalized to 1.</p>
+</dd>
+<dt>dfunc <span class="classifier-delimiter">:</span> <span class="classifier">callable, optional</span></dt>
+<dd><p class="first last">takes the same arguments as <code class="docutils literal"><span class="pre">func</span></code>. Returns a tuple of size 2.
+The first element: again the image model function, exactly as
+returned by <code class="docutils literal"><span class="pre">func</span></code>, because of performance considerations.
+The second element: the Jacobian of <code class="docutils literal"><span class="pre">func</span></code>. List of 1d arrays,
+with length <code class="docutils literal"><span class="pre">len(params)</span> <span class="pre">+</span> <span class="pre">1</span></code>.
+The first element is the derivative w.r.t. <cite>r^2</cite>, the following
+elements each w.r.t. to a custom params, in the order given by
+<code class="docutils literal"><span class="pre">params</span></code>.</p>
+</dd>
+<dt>default <span class="classifier-delimiter">:</span> <span class="classifier">dict</span></dt>
+<dd><p class="first last">Default parameter values.</p>
+</dd>
+</dl>
+</div></blockquote>
+</div></blockquote>
+<p><strong>param_mode</strong> : dict, optional</p>
+<blockquote>
+<div><p>For each parameter, define whether it is constant or varies. Also define
+whether variables are equal within each cluster or equal for all features.</p>
+<dl class="docutils">
+<dt>Each parameter can have one of the following values:</dt>
+<dd><dl class="first last docutils">
+<dt><code class="docutils literal"><span class="pre">'var'</span></code> :</dt>
+<dd><p class="first last">the parameter is allowed to vary for each feature
+independently</p>
+</dd>
+<dt><code class="docutils literal"><span class="pre">'const'</span></code> :</dt>
+<dd><p class="first last">the parameter is not allowed to vary</p>
+</dd>
+<dt><code class="docutils literal"><span class="pre">'cluster'</span></code> :</dt>
+<dd><p class="first last">the parameter is allowed to vary, but is equal
+within each cluster</p>
+</dd>
+<dt><code class="docutils literal"><span class="pre">'global'</span></code> :</dt>
+<dd><p class="first last">the parameter is allowed to vary, but is equal for each feature</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<p>Not implemented yet: <code class="docutils literal"><span class="pre">'frame'</span></code> and <code class="docutils literal"><span class="pre">'particle'</span></code></p>
+<p>Default values for position coordinates and signal is <code class="docutils literal"><span class="pre">'var'</span></code>, for
+background <code class="docutils literal"><span class="pre">'cluster'</span></code> and for all others <code class="docutils literal"><span class="pre">'const'</span></code>. Background
+cannot vary per feature.</p>
+</div></blockquote>
+<p><strong>param_val</strong> : dict, optional</p>
+<blockquote>
+<div><p>Default parameter values.</p>
+</div></blockquote>
+<p><strong>constraints</strong> : iterable of dicts</p>
+<blockquote>
+<div><p>Contains definition
+These are described as follows (adapted from scipy.optimize.minimize):</p>
+<blockquote>
+<div><dl class="docutils">
+<dt>type <span class="classifier-delimiter">:</span> <span class="classifier">str</span></dt>
+<dd><p class="first last">Constraint type: &#8216;eq&#8217; for equality, &#8216;ineq&#8217; for inequality.</p>
+</dd>
+<dt>fun <span class="classifier-delimiter">:</span> <span class="classifier">callable</span></dt>
+<dd><p class="first last">The function defining the constraint. The function is provided
+a 3d ndarray with on the axes (&lt;cluster&gt;, &lt;feature&gt;, &lt;parameters&gt;)
+parameters are (background, signal, &lt;pos&gt;, &lt;size&gt;, &lt;other&gt;)</p>
+</dd>
+<dt>args <span class="classifier-delimiter">:</span> <span class="classifier">sequence, optional</span></dt>
+<dd><p class="first last">Extra arguments to be passed to the function.</p>
+</dd>
+<dt>cluster_size <span class="classifier-delimiter">:</span> <span class="classifier">integer</span></dt>
+<dd><p class="first last">Size of the cluster to which the constraint applies</p>
+</dd>
+</dl>
+</div></blockquote>
+<p>Equality constraint means that the constraint function result is to
+be zero whereas inequality means that it is to be non-negative.</p>
+</div></blockquote>
+<p><strong>bounds: dict</strong></p>
+<blockquote>
+<div><dl class="docutils">
+<dt>Bounds on parameters, in the following forms:</dt>
+<dd><ul class="first last simple">
+<li>Absolute bounds <code class="docutils literal"><span class="pre">{'x':</span> <span class="pre">[low,</span> <span class="pre">high]}</span></code></li>
+<li>Difference bounds, one-sided <code class="docutils literal"><span class="pre">{'x_diff':</span> <span class="pre">max_diff}</span></code></li>
+<li>Difference bounds, two-sided <code class="docutils literal"><span class="pre">{'x_diff':</span> <span class="pre">[max_diff_below,max_diff_above]}</span></code></li>
+<li>Relative bounds, one-sided <code class="docutils literal"><span class="pre">{'x_rel_diff':</span> <span class="pre">max_fraction_below}</span></code></li>
+<li>Relative bounds, two-sided <code class="docutils literal"><span class="pre">{'x_rel_diff':</span> <span class="pre">[max_fraction_below,</span> <span class="pre">max_fraction_above]}</span></code></li>
+</ul>
+</dd>
+</dl>
+<p>When the keyword <cite>pos</cite> is used, this will be distributed to all
+pos_columns (but direct values of each positions will have precedence)
+When the keyword <cite>size</cite> is used, this will be distributed to all sizes,
+in the case of anisotropic sizes (also, direct values have precedence)</p>
+</div></blockquote>
+<p><strong>pos_columns: list of strings, optional</strong></p>
+<blockquote>
+<div><p>Column names that contain the position coordinates.
+Defaults to [&#8216;y&#8217;, &#8216;x&#8217;] (or [&#8216;z&#8217;, &#8216;y&#8217;, &#8216;x&#8217;] if &#8216;z&#8217; exists)</p>
+</div></blockquote>
+<p><strong>t_column: string, optional</strong></p>
+<blockquote>
+<div><p>Column name that denotes the frame index. Default &#8216;frame&#8217;</p>
+</div></blockquote>
+<p><strong>noise_size: number, optional</strong></p>
+<blockquote>
+<div><p>Noise size used in lowpass filter. Default None.</p>
+</div></blockquote>
+<p><strong>threshold: number, optional</strong></p>
+<blockquote>
+<div><p>Threshold used in lowpass filter. Default None.</p>
+</div></blockquote>
+<p><strong>max_iter: int, optional</strong></p>
+<blockquote>
+<div><p>Max number of whole-pixel shifts in refine. Default 10.</p>
+</div></blockquote>
+<p><strong>max_shift: float, optional</strong></p>
+<blockquote>
+<div><p>Maximum satisfactory out-of-center distance. When the fitted gaussian
+is more out of center, do extra iteration. Default 1.</p>
+</div></blockquote>
+<p><strong>max_rms_dev</strong> : float, optional</p>
+<blockquote>
+<div><p>Maximum root mean squared difference between the final fit and the
+(preprocessed) image, in units of the image maximum value. Default 1.</p>
+</div></blockquote>
+<p><strong>residual_factor</strong> : float, optional</p>
+<blockquote>
+<div><p>Factor with which the residual is multiplied, something internal inside
+SLSQP makes it work best with this set around 100000. (which is Default)</p>
+</div></blockquote>
+<p><strong>kwargs</strong> : optional</p>
+<blockquote>
+<div><p>other arguments are passed directly to scipy.minimize. Defaults are
+<code class="docutils literal"><span class="pre">dict(method='SLSQP',</span> <span class="pre">tol=1E-6)</span></code></p>
+</div></blockquote>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">DataFrame of refined coordinates.</p>
+<p>added column &#8216;cluster&#8217;: the cluster id of the feature.</p>
+<p>added column &#8216;cluster_size&#8217;: the size of the cluster to which the feature belongs</p>
+<p>added column &#8216;cost&#8217;: root mean squared difference between the final fit and</p>
+<blockquote class="last">
+<div><p>the (preprocessed) image, in units of the cluster maximum value. If the
+optimization fails, no error is raised feature fields are unchanged,
+and this field becomes NaN.</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+
+
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2016, Casper van der Wel.
+    </p>
+  </div>
+
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+  
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../',
+            VERSION:'1.0',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../_static/jquery.js"></script>
+      <script type="text/javascript" src="../_static/underscore.js"></script>
+      <script type="text/javascript" src="../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

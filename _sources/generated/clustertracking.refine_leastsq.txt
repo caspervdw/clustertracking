@@ -1,0 +1,6 @@
+clustertracking.refine_leastsq
+==============================
+
+.. currentmodule:: clustertracking
+
+.. autofunction:: refine_leastsq

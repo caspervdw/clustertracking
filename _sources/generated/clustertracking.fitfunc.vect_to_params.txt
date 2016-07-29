@@ -1,0 +1,6 @@
+clustertracking.fitfunc.vect_to_params
+======================================
+
+.. currentmodule:: clustertracking.fitfunc
+
+.. autofunction:: vect_to_params

@@ -1,0 +1,6 @@
+clustertracking.masks.slices_multiple
+=====================================
+
+.. currentmodule:: clustertracking.masks
+
+.. autofunction:: slices_multiple

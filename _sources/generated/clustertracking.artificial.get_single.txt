@@ -1,0 +1,6 @@
+clustertracking.artificial.get_single
+=====================================
+
+.. currentmodule:: clustertracking.artificial
+
+.. autofunction:: get_single

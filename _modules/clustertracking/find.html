@@ -1,0 +1,446 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>clustertracking.find &mdash; clustertracking 1.0 documentation</title>
+  
+
+  
+  
+
+  
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700,400italic,700italic|Roboto+Slab:400,700|Inconsolata:400,700&subset=latin,cyrillic' rel='stylesheet' type='text/css'>
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+    <link rel="top" title="clustertracking 1.0 documentation" href="../../index.html"/>
+        <link rel="up" title="Module code" href="../index.html"/> 
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/modernizr/2.6.2/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-nav-search">
+        
+          <a href="../../index.html" class="fa fa-home"> clustertracking</a>
+        
+        
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+        
+          
+          
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../api.html#core-functionality">Core functionality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api.html#constraints">Constraints</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api.html#model-image-creation">Model image creation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api.html#cluster-motion-analysis">Cluster motion analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api.html#helper-functions">Helper functions</a></li>
+</ul>
+</li>
+</ul>
+
+          
+        
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../../index.html">clustertracking</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+      
+    <li>clustertracking.find</li>
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document">
+            
+  <h1>Source code for clustertracking.find</h1><div class="highlight"><pre>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="p">(</span><span class="n">absolute_import</span><span class="p">,</span> <span class="n">division</span><span class="p">,</span> <span class="n">print_function</span><span class="p">,</span>
+                        <span class="n">unicode_literals</span><span class="p">)</span>
+<span class="kn">import</span> <span class="nn">six</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="kn">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">ndimage</span>
+<span class="kn">from</span> <span class="nn">scipy.spatial</span> <span class="kn">import</span> <span class="n">cKDTree</span>
+
+<span class="kn">from</span> <span class="nn">.utils</span> <span class="kn">import</span> <span class="n">validate_tuple</span><span class="p">,</span> <span class="n">guess_pos_columns</span>
+
+
+<span class="k">class</span> <span class="nc">Clusters</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_pairs</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">pairs</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
+        <span class="n">clusters</span> <span class="o">=</span> <span class="n">cls</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">length</span><span class="p">))</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span> <span class="ow">in</span> <span class="n">pairs</span><span class="p">:</span>
+            <span class="n">clusters</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">clusters</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_kdtree</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">kdtree</span><span class="p">,</span> <span class="n">separation</span><span class="p">):</span>
+        <span class="n">pairs</span> <span class="o">=</span> <span class="n">kdtree</span><span class="o">.</span><span class="n">query_pairs</span><span class="p">(</span><span class="n">separation</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">cls</span><span class="o">.</span><span class="n">from_pairs</span><span class="p">(</span><span class="n">pairs</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">kdtree</span><span class="o">.</span><span class="n">data</span><span class="p">))</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_coords</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">separation</span><span class="p">):</span>
+        <span class="n">pairs</span> <span class="o">=</span> <span class="n">cKDTree</span><span class="p">(</span><span class="n">coords</span> <span class="o">/</span> <span class="n">separation</span><span class="p">)</span><span class="o">.</span><span class="n">query_pairs</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">cls</span><span class="o">.</span><span class="n">from_pairs</span><span class="p">(</span><span class="n">pairs</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">indices</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cl</span> <span class="o">=</span> <span class="p">{</span><span class="n">i</span><span class="p">:</span> <span class="p">{</span><span class="n">i</span><span class="p">}</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">indices</span><span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_f</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">clusters</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cl</span>
+
+    <span class="k">def</span> <span class="nf">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cl</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cl</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+        <span class="n">i1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_f</span><span class="p">[</span><span class="n">a</span><span class="p">]</span>
+        <span class="n">i2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_f</span><span class="p">[</span><span class="n">b</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">i1</span> <span class="o">!=</span> <span class="n">i2</span><span class="p">:</span>  <span class="c"># if a and b are already clustered, do nothing</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cl</span><span class="p">[</span><span class="n">i1</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cl</span><span class="p">[</span><span class="n">i1</span><span class="p">]</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cl</span><span class="p">[</span><span class="n">i2</span><span class="p">])</span>
+            <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cl</span><span class="p">[</span><span class="n">i2</span><span class="p">]:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_f</span><span class="p">[</span><span class="n">f</span><span class="p">]</span> <span class="o">=</span> <span class="n">i1</span>
+            <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cl</span><span class="p">[</span><span class="n">i2</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">cluster_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_f</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">cluster_size</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="p">[</span><span class="bp">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_f</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">cluster</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">cluster</span><span class="p">:</span>
+                <span class="n">result</span><span class="p">[</span><span class="n">f</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">cluster</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span>
+
+
+<span class="k">def</span> <span class="nf">iter_clusters</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">separation</span><span class="p">):</span>
+    <span class="n">pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_2d</span><span class="p">(</span><span class="n">pos</span><span class="p">)</span>
+    <span class="n">pairs</span> <span class="o">=</span> <span class="n">cKDTree</span><span class="p">(</span><span class="n">pos</span> <span class="o">/</span> <span class="n">separation</span><span class="p">)</span><span class="o">.</span><span class="n">query_pairs</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">clusters</span> <span class="o">=</span> <span class="n">Clusters</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">pos</span><span class="p">)))</span>
+    <span class="k">for</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span> <span class="ow">in</span> <span class="n">pairs</span><span class="p">:</span>
+        <span class="n">clusters</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">iter</span><span class="p">(</span><span class="n">clusters</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_find</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">separation</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Find clusters in a list or ndarray of coordinates.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    f: iterable of coordinates</span>
+<span class="sd">    separation: tuple of numbers</span>
+<span class="sd">        Separation distance below which particles are considered inside cluster</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    ----------</span>
+<span class="sd">    ids : ndarray of cluster IDs per particle</span>
+<span class="sd">    sizes : ndarray of cluster sizes</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c"># kdt setup</span>
+    <span class="n">pairs</span> <span class="o">=</span> <span class="n">cKDTree</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="o">/</span> <span class="n">separation</span><span class="p">)</span><span class="o">.</span><span class="n">query_pairs</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">clusters</span> <span class="o">=</span> <span class="n">Clusters</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">f</span><span class="p">)))</span>
+    <span class="k">for</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span> <span class="ow">in</span> <span class="n">pairs</span><span class="p">:</span>
+        <span class="n">clusters</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">clusters</span><span class="o">.</span><span class="n">cluster_id</span><span class="p">,</span> <span class="n">clusters</span><span class="o">.</span><span class="n">cluster_size</span>
+
+
+<span class="k">def</span> <span class="nf">find_iter</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span> <span class="n">pos_columns</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">t_column</span><span class="o">=</span><span class="s">&#39;frame&#39;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Find clusters in a DataFrame, returns generator iterating over frames.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    f: DataFrame</span>
+<span class="sd">        pandas DataFrame containing pos_columns and t_column</span>
+<span class="sd">    separation: number or tuple</span>
+<span class="sd">        Separation distance below which particles are considered inside cluster</span>
+<span class="sd">    pos_columns: list of strings, optional</span>
+<span class="sd">        Column names that contain the position coordinates.</span>
+<span class="sd">        Defaults to [&#39;y&#39;, &#39;x&#39;] (or [&#39;z&#39;, &#39;y&#39;, &#39;x&#39;] if &#39;z&#39; exists)</span>
+<span class="sd">    t_column: string</span>
+<span class="sd">        Column name containing the frame number (Default: &#39;frame&#39;)</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    ----------</span>
+<span class="sd">    generator of:</span>
+<span class="sd">        frame_no</span>
+<span class="sd">        DataFrame with added cluster and cluster_size column</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">pos_columns</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">pos_columns</span> <span class="o">=</span> <span class="n">guess_pos_columns</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+    <span class="n">next_id</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">for</span> <span class="n">frame_no</span><span class="p">,</span> <span class="n">f_frame</span> <span class="ow">in</span> <span class="n">f</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">t_column</span><span class="p">):</span>
+        <span class="n">ids</span><span class="p">,</span> <span class="n">sizes</span> <span class="o">=</span> <span class="n">_find</span><span class="p">(</span><span class="n">f_frame</span><span class="p">[</span><span class="n">pos_columns</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">separation</span><span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">f_frame</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">result</span><span class="p">[</span><span class="s">&#39;cluster&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ids</span>
+        <span class="n">result</span><span class="p">[</span><span class="s">&#39;cluster_size&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sizes</span>
+        <span class="n">result</span><span class="p">[</span><span class="s">&#39;cluster&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">next_id</span>
+        <span class="n">next_id</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s">&#39;cluster&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">yield</span> <span class="n">frame_no</span><span class="p">,</span> <span class="n">result</span>
+
+
+<div class="viewcode-block" id="find_clusters"><a class="viewcode-back" href="../../generated/clustertracking.find_clusters.html#clustertracking.find.find_clusters">[docs]</a><span class="k">def</span> <span class="nf">find_clusters</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span> <span class="n">pos_columns</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">t_column</span><span class="o">=</span><span class="s">&#39;frame&#39;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Find clusters in a DataFrame of points from several frames.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    f: DataFrame</span>
+<span class="sd">        pandas DataFrame containing pos_columns and t_column</span>
+<span class="sd">    separation: number or tuple</span>
+<span class="sd">        Separation distance below which particles are considered inside cluster</span>
+<span class="sd">    pos_columns: list of strings, optional</span>
+<span class="sd">        Column names that contain the position coordinates.</span>
+<span class="sd">        Defaults to [&#39;y&#39;, &#39;x&#39;] (or [&#39;z&#39;, &#39;y&#39;, &#39;x&#39;] if &#39;z&#39; exists)</span>
+<span class="sd">    t_column: string</span>
+<span class="sd">        Column name containing the frame number (Default: &#39;frame&#39;)</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    ----------</span>
+<span class="sd">    DataFrame</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">t_column</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">f</span><span class="p">[</span><span class="n">t_column</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">remove_t_column</span> <span class="o">=</span> <span class="bp">True</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">remove_t_column</span> <span class="o">=</span> <span class="bp">False</span>
+
+    <span class="n">result</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">((</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">find_iter</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span>
+                                                <span class="n">pos_columns</span><span class="p">,</span> <span class="n">t_column</span><span class="p">)))</span>
+
+    <span class="k">if</span> <span class="n">remove_t_column</span><span class="p">:</span>
+        <span class="k">del</span> <span class="n">f</span><span class="p">[</span><span class="n">t_column</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">result</span>
+
+</div>
+<span class="k">def</span> <span class="nf">where_close</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span> <span class="n">intensity</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Returns indices of features that are closer than separation from other</span>
+<span class="sd">    features. When intensity is given, the one with the lowest intensity is</span>
+<span class="sd">    returned: else the most topleft is returned (to avoid randomness)&quot;&quot;&quot;</span>
+    <span class="n">intensity</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">intensity</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pos</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[]</span>
+    <span class="n">separation</span> <span class="o">=</span> <span class="n">validate_tuple</span><span class="p">(</span><span class="n">separation</span><span class="p">,</span> <span class="n">pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">if</span> <span class="nb">any</span><span class="p">([</span><span class="n">s</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">separation</span><span class="p">]):</span>
+        <span class="k">return</span> <span class="p">[]</span>
+    <span class="c"># Rescale positions, so that pairs are identified below a distance</span>
+    <span class="c"># of 1.</span>
+    <span class="n">pos_rescaled</span> <span class="o">=</span> <span class="n">pos</span> <span class="o">/</span> <span class="n">separation</span>
+    <span class="n">duplicates</span> <span class="o">=</span> <span class="n">cKDTree</span><span class="p">(</span><span class="n">pos_rescaled</span><span class="p">,</span> <span class="mi">30</span><span class="p">)</span><span class="o">.</span><span class="n">query_pairs</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="mf">1e-7</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">duplicates</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[]</span>
+    <span class="n">index_0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fromiter</span><span class="p">((</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">duplicates</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">index_1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fromiter</span><span class="p">((</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">duplicates</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">intensity</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">to_drop</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">pos_rescaled</span><span class="p">[</span><span class="n">index_0</span><span class="p">],</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&gt;</span>
+                           <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">pos_rescaled</span><span class="p">[</span><span class="n">index_1</span><span class="p">],</span> <span class="mi">1</span><span class="p">),</span>
+                           <span class="n">index_1</span><span class="p">,</span> <span class="n">index_0</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">intensity_0</span> <span class="o">=</span> <span class="n">intensity</span><span class="p">[</span><span class="n">index_0</span><span class="p">]</span>
+        <span class="n">intensity_1</span> <span class="o">=</span> <span class="n">intensity</span><span class="p">[</span><span class="n">index_1</span><span class="p">]</span>
+        <span class="n">to_drop</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">intensity_0</span> <span class="o">&gt;</span> <span class="n">intensity_1</span><span class="p">,</span> <span class="n">index_1</span><span class="p">,</span> <span class="n">index_0</span><span class="p">)</span>
+        <span class="n">edge_cases</span> <span class="o">=</span> <span class="n">intensity_0</span> <span class="o">==</span> <span class="n">intensity_1</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">edge_cases</span><span class="p">):</span>
+            <span class="n">index_0</span> <span class="o">=</span> <span class="n">index_0</span><span class="p">[</span><span class="n">edge_cases</span><span class="p">]</span>
+            <span class="n">index_1</span> <span class="o">=</span> <span class="n">index_1</span><span class="p">[</span><span class="n">edge_cases</span><span class="p">]</span>
+            <span class="n">to_drop</span><span class="p">[</span><span class="n">edge_cases</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">pos_rescaled</span><span class="p">[</span><span class="n">index_0</span><span class="p">],</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&gt;</span>
+                                           <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">pos_rescaled</span><span class="p">[</span><span class="n">index_1</span><span class="p">],</span> <span class="mi">1</span><span class="p">),</span>
+                                           <span class="n">index_1</span><span class="p">,</span> <span class="n">index_0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">to_drop</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">drop_close</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span> <span class="n">intensity</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Removes features that are closer than separation from other features.</span>
+<span class="sd">    When intensity is given, the one with the lowest intensity is dropped:</span>
+<span class="sd">    else the most topleft is dropped (to avoid randomness)&quot;&quot;&quot;</span>
+    <span class="n">to_drop</span> <span class="o">=</span> <span class="n">where_close</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span> <span class="n">intensity</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">to_drop</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">percentile_threshold</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">percentile</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Find grayscale threshold based on distribution in image.&quot;&quot;&quot;</span>
+
+    <span class="n">not_black</span> <span class="o">=</span> <span class="n">image</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">image</span><span class="p">)]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">not_black</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">not_black</span><span class="p">,</span> <span class="n">percentile</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">grey_dilation</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span> <span class="n">percentile</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">margin</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">precise</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Find local maxima whose brightness is above a given percentile.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    image : ndarray</span>
+<span class="sd">        The algorithm works fastest when image is of integer type.</span>
+<span class="sd">    separation : number or tuple of numbers</span>
+<span class="sd">        Minimum separation between maxima. See precise for more information.</span>
+<span class="sd">    percentile : float in range of [0,100], optional</span>
+<span class="sd">        Features must have a peak brighter than pixels in this percentile.</span>
+<span class="sd">        This helps eliminate spurious peaks. Default 64.</span>
+<span class="sd">    margin : integer or tuple of integers, optional</span>
+<span class="sd">        Zone of exclusion at edges of image. Default is ``separation / 2``.</span>
+<span class="sd">    precise : boolean, optional</span>
+<span class="sd">        Determines whether there will be an extra filtering step (``drop_close``)</span>
+<span class="sd">        discarding features that are too close. Degrades performance.</span>
+<span class="sd">        Because of the square kernel used, too many features are returned when</span>
+<span class="sd">        precise=False. Default True.</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    drop_close : removes features that are too close to brighter features</span>
+<span class="sd">    grey_dilation_legacy : local maxima finding routine used until trackpy v0.3</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">ndim</span> <span class="o">=</span> <span class="n">image</span><span class="o">.</span><span class="n">ndim</span>
+    <span class="n">separation</span> <span class="o">=</span> <span class="n">validate_tuple</span><span class="p">(</span><span class="n">separation</span><span class="p">,</span> <span class="n">ndim</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">margin</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">margin</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="n">s</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">separation</span><span class="p">])</span>
+
+    <span class="c"># Compute a threshold based on percentile.</span>
+    <span class="n">threshold</span> <span class="o">=</span> <span class="n">percentile_threshold</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">percentile</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">threshold</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="n">ndim</span><span class="p">))</span>
+
+    <span class="c"># Find the largest box that fits inside the ellipse given by separation</span>
+    <span class="n">size</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">s</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">ndim</span><span class="p">))</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">separation</span><span class="p">]</span>
+
+    <span class="c"># The intersection of the image with its dilation gives local maxima.</span>
+    <span class="n">dilation</span> <span class="o">=</span> <span class="n">ndimage</span><span class="o">.</span><span class="n">grey_dilation</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s">&#39;constant&#39;</span><span class="p">)</span>
+    <span class="n">maxima</span> <span class="o">=</span> <span class="p">(</span><span class="n">image</span> <span class="o">==</span> <span class="n">dilation</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">image</span> <span class="o">&gt;</span> <span class="n">threshold</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">maxima</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="n">ndim</span><span class="p">))</span>
+
+    <span class="n">pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">maxima</span><span class="p">))</span><span class="o">.</span><span class="n">T</span>
+
+    <span class="c"># Do not accept peaks near the edges.</span>
+    <span class="n">shape</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">image</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+    <span class="n">near_edge</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">((</span><span class="n">pos</span> <span class="o">&lt;</span> <span class="n">margin</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">pos</span> <span class="o">&gt;</span> <span class="p">(</span><span class="n">shape</span> <span class="o">-</span> <span class="n">margin</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)),</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">pos</span> <span class="o">=</span> <span class="n">pos</span><span class="p">[</span><span class="o">~</span><span class="n">near_edge</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pos</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="n">ndim</span><span class="p">))</span>
+
+    <span class="c"># Remove local maxima that are too close to each other</span>
+    <span class="k">if</span> <span class="n">precise</span><span class="p">:</span>
+        <span class="n">pos</span> <span class="o">=</span> <span class="n">drop_close</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span> <span class="n">image</span><span class="p">[</span><span class="n">maxima</span><span class="p">][</span><span class="o">~</span><span class="n">near_edge</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="n">pos</span>
+</pre></div>
+
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2016, Casper van der Wel.
+    </p>
+  </div>
+
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+  
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'1.0',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

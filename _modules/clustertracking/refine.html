@@ -1,0 +1,630 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>clustertracking.refine &mdash; clustertracking 1.0 documentation</title>
+  
+
+  
+  
+
+  
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700,400italic,700italic|Roboto+Slab:400,700|Inconsolata:400,700&subset=latin,cyrillic' rel='stylesheet' type='text/css'>
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+    <link rel="top" title="clustertracking 1.0 documentation" href="../../index.html"/>
+        <link rel="up" title="Module code" href="../index.html"/> 
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/modernizr/2.6.2/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-nav-search">
+        
+          <a href="../../index.html" class="fa fa-home"> clustertracking</a>
+        
+        
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+        
+          
+          
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../api.html#core-functionality">Core functionality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api.html#constraints">Constraints</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api.html#model-image-creation">Model image creation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api.html#cluster-motion-analysis">Cluster motion analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api.html#helper-functions">Helper functions</a></li>
+</ul>
+</li>
+</ul>
+
+          
+        
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../../index.html">clustertracking</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+      
+    <li>clustertracking.refine</li>
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document">
+            
+  <h1>Source code for clustertracking.refine</h1><div class="highlight"><pre>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">division</span><span class="p">,</span> <span class="n">print_function</span><span class="p">,</span> <span class="n">absolute_import</span>
+
+<span class="kn">import</span> <span class="nn">six</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">.preprocessing</span> <span class="kn">import</span> <span class="n">lowpass</span>
+<span class="kn">from</span> <span class="nn">.find</span> <span class="kn">import</span> <span class="n">find_clusters</span>
+<span class="kn">from</span> <span class="nn">.masks</span> <span class="kn">import</span> <span class="n">slice_image</span>
+<span class="kn">from</span> <span class="nn">.utils</span> <span class="kn">import</span> <span class="p">(</span><span class="n">guess_pos_columns</span><span class="p">,</span> <span class="n">validate_tuple</span><span class="p">,</span> <span class="n">is_isotropic</span><span class="p">,</span>
+                    <span class="n">obtain_size_columns</span><span class="p">,</span> <span class="n">RefineException</span><span class="p">,</span> <span class="n">ReaderCached</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.constraints</span> <span class="kn">import</span> <span class="n">wrap_constraints</span>
+<span class="kn">from</span> <span class="nn">.fitfunc</span> <span class="kn">import</span> <span class="n">FitFunctions</span><span class="p">,</span> <span class="n">vect_to_params</span><span class="p">,</span> <span class="n">vect_from_params</span>
+<span class="kn">from</span> <span class="nn">.display</span> <span class="kn">import</span> <span class="n">display3d</span><span class="p">,</span> <span class="n">show_feature</span><span class="p">,</span> <span class="n">show_fit</span><span class="p">,</span> <span class="n">show_feature3d</span>
+
+<span class="kn">from</span> <span class="nn">scipy.optimize</span> <span class="kn">import</span> <span class="n">minimize</span>
+
+<span class="kn">from</span> <span class="nn">trackpy</span> <span class="kn">import</span> <span class="n">refine</span> <span class="k">as</span> <span class="n">refine_com</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">__name__</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">prepare_subimage</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">image</span><span class="p">,</span> <span class="n">radius</span><span class="p">,</span> <span class="n">noise_size</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="n">ndim</span> <span class="o">=</span> <span class="n">image</span><span class="o">.</span><span class="n">ndim</span>
+    <span class="n">radius</span> <span class="o">=</span> <span class="n">validate_tuple</span><span class="p">(</span><span class="n">radius</span><span class="p">,</span> <span class="n">ndim</span><span class="p">)</span>
+    <span class="c"># slice region around cluster</span>
+    <span class="n">im</span><span class="p">,</span> <span class="n">origin</span> <span class="o">=</span> <span class="n">slice_image</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">image</span><span class="p">,</span> <span class="n">radius</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">origin</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>   <span class="c"># coordinates are out of image bounds</span>
+        <span class="k">raise</span> <span class="n">RefineException</span>
+
+    <span class="c"># do lowpass filter</span>
+    <span class="k">if</span> <span class="n">noise_size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">threshold</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">threshold</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">im</span> <span class="o">=</span> <span class="n">lowpass</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">noise_size</span><span class="p">,</span> <span class="n">threshold</span><span class="p">)</span>
+
+    <span class="c"># include the edges where dist == 1 exactly</span>
+    <span class="n">dist</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(((</span><span class="n">np</span><span class="o">.</span><span class="n">indices</span><span class="p">(</span><span class="n">im</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="o">.</span><span class="n">T</span> <span class="o">-</span> <span class="p">(</span><span class="n">coord</span> <span class="o">-</span> <span class="n">origin</span><span class="p">))</span> <span class="o">/</span> <span class="n">radius</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">1</span>
+            <span class="k">for</span> <span class="n">coord</span> <span class="ow">in</span> <span class="n">coords</span><span class="p">]</span>
+
+    <span class="c"># to mask the image</span>
+    <span class="n">mask_total</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">dist</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+    <span class="c"># to mask the masked image</span>
+    <span class="n">masks_singles</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">),</span> <span class="n">mask_total</span><span class="o">.</span><span class="n">sum</span><span class="p">()),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">bool</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">_dist</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dist</span><span class="p">):</span>
+        <span class="n">masks_singles</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">_dist</span><span class="o">.</span><span class="n">T</span><span class="p">[</span><span class="n">mask_total</span><span class="p">]</span>
+
+    <span class="c"># create the coordinates</span>
+    <span class="n">mesh</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">indices</span><span class="p">(</span><span class="n">im</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)[:,</span> <span class="n">mask_total</span><span class="p">]</span>
+    <span class="c"># translate so that coordinates are in image coordinates</span>
+    <span class="n">mesh</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">origin</span><span class="p">)[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">im</span><span class="p">[</span><span class="n">mask_total</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span> <span class="n">mesh</span><span class="p">,</span> <span class="n">masks_singles</span>
+
+
+<span class="k">def</span> <span class="nf">prepare_subimages</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">groups</span><span class="p">,</span> <span class="n">frame_nos</span><span class="p">,</span> <span class="n">reader</span><span class="p">,</span> <span class="n">radius</span><span class="p">,</span>
+                      <span class="n">noise_size</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="c"># fast shortcut</span>
+    <span class="k">if</span> <span class="n">groups</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">image</span><span class="p">,</span> <span class="n">mesh</span><span class="p">,</span> <span class="n">mask</span> <span class="o">=</span> <span class="n">prepare_subimage</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">reader</span><span class="p">[</span><span class="n">frame_nos</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span>
+                                             <span class="n">radius</span><span class="p">,</span> <span class="n">noise_size</span><span class="p">,</span> <span class="n">threshold</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">image</span><span class="p">],</span> <span class="p">[</span><span class="n">mesh</span><span class="p">],</span> <span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+
+    <span class="n">images</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">meshes</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">masks</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">cl_inds</span> <span class="ow">in</span> <span class="n">groups</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+        <span class="n">frame_no</span> <span class="o">=</span> <span class="n">frame_nos</span><span class="p">[</span><span class="n">cl_inds</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+        <span class="n">image</span><span class="p">,</span> <span class="n">mesh</span><span class="p">,</span> <span class="n">mask</span> <span class="o">=</span> <span class="n">prepare_subimage</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="n">cl_inds</span><span class="p">],</span> <span class="n">reader</span><span class="p">[</span><span class="n">frame_no</span><span class="p">],</span>
+                                             <span class="n">radius</span><span class="p">,</span> <span class="n">noise_size</span><span class="p">,</span> <span class="n">threshold</span><span class="p">)</span>
+        <span class="n">images</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
+        <span class="n">meshes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mesh</span><span class="p">)</span>
+        <span class="n">masks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">images</span><span class="p">,</span> <span class="n">meshes</span><span class="p">,</span> <span class="n">masks</span>
+
+
+<div class="viewcode-block" id="refine_leastsq"><a class="viewcode-back" href="../../generated/clustertracking.refine_leastsq.html#clustertracking.refine_leastsq">[docs]</a><span class="k">def</span> <span class="nf">refine_leastsq</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">reader</span><span class="p">,</span> <span class="n">diameter</span><span class="p">,</span> <span class="n">separation</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">fit_function</span><span class="o">=</span><span class="s">&#39;gauss&#39;</span><span class="p">,</span>
+                   <span class="n">param_mode</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">param_val</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">constraints</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                   <span class="n">bounds</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">pos_columns</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">t_column</span><span class="o">=</span><span class="s">&#39;frame&#39;</span><span class="p">,</span>
+                   <span class="n">noise_size</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">max_shift</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                   <span class="n">max_rms_dev</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span> <span class="n">residual_factor</span><span class="o">=</span><span class="mf">100000.</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Refines cluster coordinates by least-squares fitting to radial model</span>
+<span class="sd">    functions.</span>
+
+<span class="sd">    This does not raise an error if minimization failes. Instead, coordinates</span>
+<span class="sd">    are unchanged and the added column ``cost`` will be ``NaN``.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    f : DataFrame</span>
+<span class="sd">        pandas DataFrame containing coordinates of features.</span>
+<span class="sd">        Required columns are positions. Any parameter that is not present should</span>
+<span class="sd">        be either given in the ``param_val`` dict (e.g. &#39;signal&#39;, &#39;size&#39;) or be</span>
+<span class="sd">        present in the ``default`` field of the used model function.</span>
+<span class="sd">    reader : pims.FramesSequence or ndarray</span>
+<span class="sd">        FrameSequence: object that returns an image when indexed. It should</span>
+<span class="sd">        provide the ``frame_shape`` attribute. If a FrameSequence is not given,</span>
+<span class="sd">        a single image is assumed and all features that are present in ``f`` are</span>
+<span class="sd">        assumed to be in that image.</span>
+<span class="sd">    diameter : number or tuple</span>
+<span class="sd">        Determines the feature mask size that is used for the refinement</span>
+<span class="sd">    separation : number or tuple</span>
+<span class="sd">        Determines the distance below which features are considered in the same</span>
+<span class="sd">        cluster. By default, equals ``diameter``. As the model feature function is</span>
+<span class="sd">        only defined up to ``diameter``, it only makes sense to change this</span>
+<span class="sd">        parameter in some edge cases.</span>
+<span class="sd">    fit_function : {&#39;gauss&#39;, &#39;ring&#39;, &#39;inv_series_&lt;number&gt;&#39;} or dict, optional</span>
+<span class="sd">        The shape of the used radial model function. Defaults to Gaussian.</span>
+<span class="sd">        The ring model function is a displaced gaussian with parameter ``thickness``.</span>
+<span class="sd">        The ``inv_series_&lt;number&gt;`` model function is the inverse of an</span>
+<span class="sd">        even polynomial containing ``&lt;number&gt;`` parameters</span>
+<span class="sd">        (e.g. A / (1 + a r^2 + b r^4 + c r^2 + ...)</span>
+
+<span class="sd">        Define your own model function with a dictionary, containing:</span>
+
+<span class="sd">            params : list of str</span>
+<span class="sd">                list of parameter names. has the same length as the ``p`` array</span>
+<span class="sd">                in ``func`` and ``dfunc``</span>
+<span class="sd">            func : callable</span>
+<span class="sd">                The image model function. It takes arguments ``(r2, p, ndim)``,</span>
+<span class="sd">                with ``r2`` being a 1d ndarray containing the squared reduced</span>
+<span class="sd">                radial distances.</span>
+<span class="sd">                (for isotropic, 2D: ``((x - c_x)^2 + (y - c_y)^2) / size^2``).</span>
+<span class="sd">                ``p`` is a 1d array of parameters single feature parameters.</span>
+<span class="sd">                ``ndim`` is the number of dimensions. Returns a 1d vector of the</span>
+<span class="sd">                same size as ``r2`` containing intensity values, normalized to 1.</span>
+<span class="sd">            dfunc : callable, optional</span>
+<span class="sd">                takes the same arguments as ``func``. Returns a tuple of size 2.</span>
+<span class="sd">                The first element: again the image model function, exactly as</span>
+<span class="sd">                returned by ``func``, because of performance considerations.</span>
+<span class="sd">                The second element: the Jacobian of ``func``. List of 1d arrays,</span>
+<span class="sd">                with length ``len(params) + 1``.</span>
+<span class="sd">                The first element is the derivative w.r.t. `r^2`, the following</span>
+<span class="sd">                elements each w.r.t. to a custom params, in the order given by</span>
+<span class="sd">                ``params``.</span>
+<span class="sd">            default : dict</span>
+<span class="sd">                Default parameter values.</span>
+<span class="sd">    param_mode : dict, optional</span>
+<span class="sd">        For each parameter, define whether it is constant or varies. Also define</span>
+<span class="sd">        whether variables are equal within each cluster or equal for all features.</span>
+
+<span class="sd">        Each parameter can have one of the following values:</span>
+<span class="sd">            ``&#39;var&#39;`` :</span>
+<span class="sd">                the parameter is allowed to vary for each feature</span>
+<span class="sd">                independently</span>
+<span class="sd">            ``&#39;const&#39;`` :</span>
+<span class="sd">                the parameter is not allowed to vary</span>
+<span class="sd">            ``&#39;cluster&#39;`` :</span>
+<span class="sd">                the parameter is allowed to vary, but is equal</span>
+<span class="sd">                within each cluster</span>
+<span class="sd">            ``&#39;global&#39;`` :</span>
+<span class="sd">                the parameter is allowed to vary, but is equal for each feature</span>
+<span class="sd">        Not implemented yet: ``&#39;frame&#39;`` and ``&#39;particle&#39;``</span>
+
+<span class="sd">        Default values for position coordinates and signal is ``&#39;var&#39;``, for</span>
+<span class="sd">        background ``&#39;cluster&#39;`` and for all others ``&#39;const&#39;``. Background</span>
+<span class="sd">        cannot vary per feature.</span>
+<span class="sd">    param_val : dict, optional</span>
+<span class="sd">        Default parameter values.</span>
+<span class="sd">    constraints : iterable of dicts</span>
+<span class="sd">        Contains definition</span>
+<span class="sd">        These are described as follows (adapted from scipy.optimize.minimize):</span>
+
+<span class="sd">            type : str</span>
+<span class="sd">                Constraint type: &#39;eq&#39; for equality, &#39;ineq&#39; for inequality.</span>
+<span class="sd">            fun : callable</span>
+<span class="sd">                The function defining the constraint. The function is provided</span>
+<span class="sd">                a 3d ndarray with on the axes (&lt;cluster&gt;, &lt;feature&gt;, &lt;parameters&gt;)</span>
+<span class="sd">                parameters are (background, signal, &lt;pos&gt;, &lt;size&gt;, &lt;other&gt;)</span>
+<span class="sd">            args : sequence, optional</span>
+<span class="sd">                Extra arguments to be passed to the function.</span>
+<span class="sd">            cluster_size : integer</span>
+<span class="sd">                Size of the cluster to which the constraint applies</span>
+
+<span class="sd">        Equality constraint means that the constraint function result is to</span>
+<span class="sd">        be zero whereas inequality means that it is to be non-negative.</span>
+<span class="sd">    bounds: dict</span>
+<span class="sd">        Bounds on parameters, in the following forms:</span>
+<span class="sd">            - Absolute bounds ``{&#39;x&#39;: [low, high]}``</span>
+<span class="sd">            - Difference bounds, one-sided ``{&#39;x_diff&#39;: max_diff}``</span>
+<span class="sd">            - Difference bounds, two-sided ``{&#39;x_diff&#39;: [max_diff_below,max_diff_above]}``</span>
+<span class="sd">            - Relative bounds, one-sided ``{&#39;x_rel_diff&#39;: max_fraction_below}``</span>
+<span class="sd">            - Relative bounds, two-sided ``{&#39;x_rel_diff&#39;: [max_fraction_below, max_fraction_above]}``</span>
+<span class="sd">        When the keyword `pos` is used, this will be distributed to all</span>
+<span class="sd">        pos_columns (but direct values of each positions will have precedence)</span>
+<span class="sd">        When the keyword `size` is used, this will be distributed to all sizes,</span>
+<span class="sd">        in the case of anisotropic sizes (also, direct values have precedence)</span>
+<span class="sd">    pos_columns: list of strings, optional</span>
+<span class="sd">        Column names that contain the position coordinates.</span>
+<span class="sd">        Defaults to [&#39;y&#39;, &#39;x&#39;] (or [&#39;z&#39;, &#39;y&#39;, &#39;x&#39;] if &#39;z&#39; exists)</span>
+<span class="sd">    t_column: string, optional</span>
+<span class="sd">        Column name that denotes the frame index. Default &#39;frame&#39;</span>
+<span class="sd">    noise_size: number, optional</span>
+<span class="sd">        Noise size used in lowpass filter. Default None.</span>
+<span class="sd">    threshold: number, optional</span>
+<span class="sd">        Threshold used in lowpass filter. Default None.</span>
+<span class="sd">    max_iter: int, optional</span>
+<span class="sd">        Max number of whole-pixel shifts in refine. Default 10.</span>
+<span class="sd">    max_shift: float, optional</span>
+<span class="sd">        Maximum satisfactory out-of-center distance. When the fitted gaussian</span>
+<span class="sd">        is more out of center, do extra iteration. Default 1.</span>
+<span class="sd">    max_rms_dev : float, optional</span>
+<span class="sd">        Maximum root mean squared difference between the final fit and the</span>
+<span class="sd">        (preprocessed) image, in units of the image maximum value. Default 1.</span>
+<span class="sd">    residual_factor : float, optional</span>
+<span class="sd">        Factor with which the residual is multiplied, something internal inside</span>
+<span class="sd">        SLSQP makes it work best with this set around 100000. (which is Default)</span>
+<span class="sd">    kwargs : optional</span>
+<span class="sd">        other arguments are passed directly to scipy.minimize. Defaults are</span>
+<span class="sd">        ``dict(method=&#39;SLSQP&#39;, tol=1E-6)``</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    DataFrame of refined coordinates.</span>
+<span class="sd">    added column &#39;cluster&#39;: the cluster id of the feature.</span>
+<span class="sd">    added column &#39;cluster_size&#39;: the size of the cluster to which the feature belongs</span>
+<span class="sd">    added column &#39;cost&#39;: root mean squared difference between the final fit and</span>
+<span class="sd">        the (preprocessed) image, in units of the cluster maximum value. If the</span>
+<span class="sd">        optimization fails, no error is raised feature fields are unchanged,</span>
+<span class="sd">        and this field becomes NaN.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">method</span><span class="o">=</span><span class="s">&#39;SLSQP&#39;</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1E-6</span><span class="p">)</span>
+    <span class="n">_kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="c"># Initialize variables</span>
+    <span class="k">if</span> <span class="n">pos_columns</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">pos_columns</span> <span class="o">=</span> <span class="n">guess_pos_columns</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+    <span class="c"># Cache images</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c"># assume that the reader is a FramesSequence</span>
+        <span class="n">ndim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">frame_shape</span><span class="p">)</span>
+        <span class="n">logging</span> <span class="o">=</span> <span class="bp">True</span>
+    <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">ndim</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">ndim</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&#39;For multiple frames, the reader should be a&#39;</span>
+                             <span class="s">&#39;FramesSequence object exposing the &quot;frame_shape&quot;&#39;</span>
+                             <span class="s">&#39;attribute&#39;</span><span class="p">)</span>
+        <span class="c"># reader is a single Frame, wrap it using some logic for the frame_no</span>
+        <span class="n">frame_no</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">reader</span><span class="p">,</span> <span class="s">&#39;frame_no&#39;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">reader</span><span class="o">.</span><span class="n">frame_no</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="n">frame_no</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">frame_no</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">frame_no</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="ow">and</span> <span class="n">t_column</span> <span class="ow">in</span> <span class="n">f</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">f</span><span class="p">[</span><span class="s">&#39;frame&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">frame_no</span><span class="p">)</span>
+            <span class="n">reader</span> <span class="o">=</span> <span class="p">{</span><span class="n">frame_no</span><span class="p">:</span> <span class="n">reader</span><span class="p">}</span>
+        <span class="k">elif</span> <span class="n">frame_no</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">reader</span> <span class="o">=</span> <span class="p">{</span><span class="n">frame_no</span><span class="p">:</span> <span class="n">reader</span><span class="p">}</span>
+            <span class="n">f</span><span class="p">[</span><span class="n">t_column</span><span class="p">]</span> <span class="o">=</span> <span class="n">frame_no</span>
+        <span class="k">elif</span> <span class="n">frame_no</span> <span class="ow">is</span> <span class="bp">None</span> <span class="ow">and</span> <span class="n">t_column</span> <span class="ow">in</span> <span class="n">f</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">f</span><span class="p">[</span><span class="n">t_column</span><span class="p">]</span><span class="o">.</span><span class="n">nunique</span><span class="p">()</span> <span class="o">==</span> <span class="mi">1</span>
+            <span class="n">reader</span> <span class="o">=</span> <span class="p">{</span><span class="nb">int</span><span class="p">(</span><span class="n">f</span><span class="p">[</span><span class="n">t_column</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span> <span class="n">reader</span><span class="p">}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">f</span><span class="p">[</span><span class="n">t_column</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">reader</span> <span class="o">=</span> <span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="n">reader</span><span class="p">}</span>
+        <span class="n">logging</span> <span class="o">=</span> <span class="bp">False</span>
+
+    <span class="k">assert</span> <span class="n">ndim</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">pos_columns</span><span class="p">)</span>
+
+    <span class="n">diameter</span> <span class="o">=</span> <span class="n">validate_tuple</span><span class="p">(</span><span class="n">diameter</span><span class="p">,</span> <span class="n">ndim</span><span class="p">)</span>
+    <span class="n">radius</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">x</span><span class="o">//</span><span class="mi">2</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">diameter</span><span class="p">])</span>
+    <span class="n">isotropic</span> <span class="o">=</span> <span class="n">is_isotropic</span><span class="p">(</span><span class="n">diameter</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">separation</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">separation</span> <span class="o">=</span> <span class="n">diameter</span>
+
+    <span class="n">ff</span> <span class="o">=</span> <span class="n">FitFunctions</span><span class="p">(</span><span class="n">fit_function</span><span class="p">,</span> <span class="n">ndim</span><span class="p">,</span> <span class="n">isotropic</span><span class="p">,</span> <span class="n">param_mode</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">constraints</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">constraints</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+    <span class="c"># Assign param_val to dataframe</span>
+    <span class="k">if</span> <span class="n">param_val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">param_val</span><span class="p">:</span>
+            <span class="n">f</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">param_val</span><span class="p">[</span><span class="n">col</span><span class="p">]</span>
+    <span class="n">col_missing</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">ff</span><span class="o">.</span><span class="n">params</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">col_missing</span><span class="p">:</span>
+        <span class="n">f</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">ff</span><span class="o">.</span><span class="n">default</span><span class="p">[</span><span class="n">col</span><span class="p">]</span>
+
+    <span class="n">bounds</span> <span class="o">=</span> <span class="n">ff</span><span class="o">.</span><span class="n">validate_bounds</span><span class="p">(</span><span class="n">bounds</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="n">radius</span><span class="p">)</span>
+
+    <span class="c"># makes a copy</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="n">find_clusters</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span> <span class="n">pos_columns</span><span class="p">,</span> <span class="n">t_column</span><span class="p">)</span>
+
+    <span class="c"># split the problem into smaller ones, depending on param_mode</span>
+    <span class="n">modes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ff</span><span class="o">.</span><span class="n">modes</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">modes</span> <span class="o">==</span> <span class="mi">2</span><span class="p">):</span>
+        <span class="n">level</span> <span class="o">=</span> <span class="s">&#39;global&#39;</span>
+        <span class="c"># there are globals, we cannot split the problem</span>
+        <span class="n">iterable</span> <span class="o">=</span> <span class="p">[(</span><span class="bp">None</span><span class="p">,</span> <span class="n">f</span><span class="p">)]</span>
+        <span class="n">id_names</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;cluster&#39;</span><span class="p">]</span>
+        <span class="n">frames</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="n">norm</span> <span class="o">=</span> <span class="mf">0.</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">f</span><span class="p">[</span><span class="n">t_column</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">():</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+            <span class="n">frame</span> <span class="o">=</span> <span class="n">reader</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">frames</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">frame</span>
+            <span class="n">norm</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">norm</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">frame</span><span class="o">.</span><span class="n">max</span><span class="p">()))</span>
+        <span class="n">norm</span> <span class="o">=</span> <span class="n">norm</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="n">residual_factor</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Cached all frames&quot;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">modes</span> <span class="o">&lt;=</span> <span class="mi">3</span><span class="p">):</span>
+        <span class="n">level</span> <span class="o">=</span> <span class="s">&#39;cluster&#39;</span>
+        <span class="c"># no globals, no per particle / per frame</span>
+        <span class="n">iterable</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s">&#39;frame&#39;</span><span class="p">,</span> <span class="s">&#39;cluster&#39;</span><span class="p">])</span>  <span class="c"># ensure sorting per frame</span>
+        <span class="n">id_names</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="n">frames</span> <span class="o">=</span> <span class="n">ReaderCached</span><span class="p">(</span><span class="n">reader</span><span class="p">)</span>  <span class="c"># cache the last frame</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="bp">NotImplemented</span><span class="p">()</span>
+
+    <span class="n">last_frame</span> <span class="o">=</span> <span class="bp">None</span>  <span class="c"># just for logging</span>
+    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">f_iter</span> <span class="ow">in</span> <span class="n">iterable</span><span class="p">:</span>
+        <span class="c"># extract the initial parameters from the dataframe</span>
+        <span class="n">params</span> <span class="o">=</span> <span class="n">f_iter</span><span class="p">[</span><span class="n">ff</span><span class="o">.</span><span class="n">params</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+        <span class="k">if</span> <span class="n">id_names</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">groups</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">f_iter_temp</span> <span class="o">=</span> <span class="n">f_iter</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+            <span class="n">groups</span> <span class="o">=</span> <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">f_iter_temp</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">col</span><span class="p">)</span><span class="o">.</span><span class="n">indices</span><span class="o">.</span><span class="n">values</span><span class="p">())</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">id_names</span><span class="p">]</span>
+        <span class="n">frame_nos</span> <span class="o">=</span> <span class="n">f_iter</span><span class="p">[</span><span class="n">t_column</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+
+        <span class="k">if</span> <span class="n">level</span> <span class="o">!=</span> <span class="s">&#39;global&#39;</span><span class="p">:</span>
+            <span class="n">norm</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">frames</span><span class="p">[</span><span class="n">frame_nos</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span><span class="o">.</span><span class="n">max</span><span class="p">())</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="n">residual_factor</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">params</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">():</span>
+                <span class="k">raise</span> <span class="n">RefineException</span>
+            <span class="c"># extract the coordinates from the parameter array</span>
+            <span class="n">coords</span> <span class="o">=</span> <span class="n">params</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">:</span><span class="mi">2</span><span class="o">+</span><span class="n">ndim</span><span class="p">]</span>
+            <span class="c"># transform the params into a vector for leastq optimization</span>
+            <span class="n">vect</span> <span class="o">=</span> <span class="n">vect_from_params</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">ff</span><span class="o">.</span><span class="n">modes</span><span class="p">,</span> <span class="n">groups</span><span class="p">,</span> <span class="n">operation</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">)</span>
+
+            <span class="n">f_constraints</span> <span class="o">=</span> <span class="n">wrap_constraints</span><span class="p">(</span><span class="n">constraints</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">ff</span><span class="o">.</span><span class="n">modes</span><span class="p">,</span> <span class="n">groups</span><span class="p">)</span>
+            <span class="n">f_bounds</span> <span class="o">=</span> <span class="n">ff</span><span class="o">.</span><span class="n">compute_bounds</span><span class="p">(</span><span class="n">bounds</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">groups</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">_n_iter</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_iter</span><span class="p">):</span>
+                <span class="n">sub_images</span><span class="p">,</span> <span class="n">meshes</span><span class="p">,</span> <span class="n">masks</span> <span class="o">=</span> <span class="n">prepare_subimages</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">groups</span><span class="p">,</span>
+                                                              <span class="n">frame_nos</span><span class="p">,</span> <span class="n">frames</span><span class="p">,</span>
+                                                              <span class="n">radius</span><span class="p">,</span> <span class="n">noise_size</span><span class="p">,</span>
+                                                              <span class="n">threshold</span><span class="p">)</span>
+                <span class="n">residual</span><span class="p">,</span> <span class="n">jacobian</span> <span class="o">=</span> <span class="n">ff</span><span class="o">.</span><span class="n">get_residual</span><span class="p">(</span><span class="n">sub_images</span><span class="p">,</span> <span class="n">meshes</span><span class="p">,</span> <span class="n">masks</span><span class="p">,</span>
+                                                     <span class="n">params</span><span class="p">,</span> <span class="n">groups</span><span class="p">,</span> <span class="n">norm</span><span class="p">)</span>
+
+                <span class="n">result</span> <span class="o">=</span> <span class="n">minimize</span><span class="p">(</span><span class="n">residual</span><span class="p">,</span> <span class="n">vect</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="n">f_bounds</span><span class="p">,</span>
+                                  <span class="n">constraints</span><span class="o">=</span><span class="n">f_constraints</span><span class="p">,</span> <span class="n">jac</span><span class="o">=</span><span class="n">jacobian</span><span class="p">,</span>
+                                  <span class="o">**</span><span class="n">_kwargs</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">result</span><span class="p">[</span><span class="s">&#39;success&#39;</span><span class="p">]:</span>
+                    <span class="k">raise</span> <span class="n">RefineException</span>
+
+                <span class="n">rms_dev</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s">&#39;fun&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">residual_factor</span><span class="p">)</span>
+                <span class="n">params</span> <span class="o">=</span> <span class="n">vect_to_params</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s">&#39;x&#39;</span><span class="p">],</span> <span class="n">params</span><span class="p">,</span> <span class="n">ff</span><span class="o">.</span><span class="n">modes</span><span class="p">,</span> <span class="n">groups</span><span class="p">)</span>
+
+                <span class="c"># check if found coords are MAX_SHIFT px from image center.</span>
+                <span class="n">new_coords</span> <span class="o">=</span> <span class="n">params</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">:</span><span class="mi">2</span><span class="o">+</span><span class="n">ndim</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">new_coords</span> <span class="o">-</span> <span class="n">coords</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">max_shift</span><span class="o">**</span><span class="mi">2</span><span class="p">):</span>
+                    <span class="k">break</span>  <span class="c"># stop iteration: accept result</span>
+
+                <span class="c"># set-up for next iteration</span>
+                <span class="n">coords</span> <span class="o">=</span> <span class="n">new_coords</span>
+
+            <span class="c"># check the final difference between fit and image</span>
+            <span class="k">if</span> <span class="n">rms_dev</span> <span class="o">&gt;</span> <span class="n">max_rms_dev</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">RefineException</span>
+
+        <span class="k">except</span> <span class="n">RefineException</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">level</span> <span class="o">==</span> <span class="s">&#39;global&#39;</span><span class="p">:</span>
+                <span class="n">f</span><span class="p">[</span><span class="s">&#39;cost&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">f_iter</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="s">&#39;cost&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+            <span class="n">status</span> <span class="o">=</span> <span class="s">&#39;failed&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">level</span> <span class="o">==</span> <span class="s">&#39;global&#39;</span><span class="p">:</span>
+                <span class="n">f</span><span class="p">[</span><span class="n">ff</span><span class="o">.</span><span class="n">params</span><span class="p">]</span> <span class="o">=</span> <span class="n">params</span>
+                <span class="n">f</span><span class="p">[</span><span class="s">&#39;cost&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rms_dev</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">f_iter</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">ff</span><span class="o">.</span><span class="n">params</span><span class="p">]</span> <span class="o">=</span> <span class="n">params</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">f_iter</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="s">&#39;cost&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rms_dev</span>
+            <span class="n">status</span> <span class="o">=</span> <span class="s">&#39;success&#39;</span>
+
+        <span class="k">if</span> <span class="n">level</span> <span class="o">==</span> <span class="s">&#39;global&#39;</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Global refine {status}: {n} &quot;</span>
+                        <span class="s">&quot;features.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">f</span><span class="p">)))</span>
+        <span class="k">elif</span> <span class="n">level</span> <span class="o">==</span> <span class="s">&#39;cluster&#39;</span><span class="p">:</span>
+            <span class="n">cluster_id</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">f_iter</span><span class="p">[</span><span class="s">&#39;cluster&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;Refine per cluster {status} in frame {frame_no}, &quot;</span>
+                         <span class="s">&quot;cluster {cluster_id} of size &quot;</span>
+                         <span class="s">&quot;{cluster_size}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="p">,</span>
+                                                 <span class="n">frame_no</span><span class="o">=</span><span class="n">frame_nos</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                                                 <span class="n">cluster_id</span><span class="o">=</span><span class="n">cluster_id</span><span class="p">,</span>
+                                                 <span class="n">cluster_size</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">f_iter</span><span class="p">)))</span>
+            <span class="k">if</span> <span class="n">frame_nos</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">last_frame</span><span class="p">:</span>
+                <span class="n">last_frame</span> <span class="o">=</span> <span class="n">frame_nos</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">mesg</span> <span class="o">=</span> <span class="s">&quot;Finished refine per cluster in frame &quot;</span> \
+                       <span class="s">&quot;{frame_no}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">frame_no</span><span class="o">=</span><span class="n">last_frame</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">logging</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">mesg</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">mesg</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">f</span>
+
+</div>
+<span class="k">def</span> <span class="nf">train_leastsq</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">reader</span><span class="p">,</span> <span class="n">diameter</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span> <span class="n">fit_function</span><span class="o">=</span><span class="s">&#39;poly4&#39;</span><span class="p">,</span>
+                  <span class="n">param_mode</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-7</span><span class="p">,</span> <span class="n">pos_columns</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Obtain fit parameters from an image of features with equal size.</span>
+<span class="sd">    Different signal intensities per feature are allowed.&quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">ndim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">frame_shape</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+        <span class="n">ndim</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">ndim</span>
+        <span class="n">reader_tp</span> <span class="o">=</span> <span class="p">[</span><span class="n">reader</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s">&#39;frame&#39;</span> <span class="ow">in</span> <span class="n">f</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">f</span><span class="p">[</span><span class="s">&#39;frame&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">nunique</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">f</span><span class="p">[</span><span class="s">&#39;frame&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">diameter</span> <span class="o">=</span> <span class="n">validate_tuple</span><span class="p">(</span><span class="n">diameter</span><span class="p">,</span> <span class="n">ndim</span><span class="p">)</span>
+    <span class="n">radius</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">d</span> <span class="o">//</span> <span class="mi">2</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">diameter</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">pos_columns</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">pos_columns</span> <span class="o">=</span> <span class="n">guess_pos_columns</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="n">isotropic</span> <span class="o">=</span> <span class="n">is_isotropic</span><span class="p">(</span><span class="n">diameter</span><span class="p">)</span>
+    <span class="n">size_columns</span> <span class="o">=</span> <span class="n">obtain_size_columns</span><span class="p">(</span><span class="n">isotropic</span><span class="p">,</span> <span class="n">pos_columns</span><span class="p">)</span>
+
+    <span class="c"># first, refine using center-of-mass</span>
+    <span class="k">for</span> <span class="n">frame_no</span><span class="p">,</span> <span class="n">f_frame</span> <span class="ow">in</span> <span class="n">f</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s">&#39;frame&#39;</span><span class="p">):</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="n">f_frame</span><span class="p">[</span><span class="n">pos_columns</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+        <span class="n">image</span> <span class="o">=</span> <span class="n">reader_tp</span><span class="p">[</span><span class="n">frame_no</span><span class="p">]</span>
+        <span class="n">tp_result</span> <span class="o">=</span> <span class="n">refine_com</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">image</span><span class="p">,</span> <span class="n">radius</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+        <span class="n">pos</span> <span class="o">=</span> <span class="n">tp_result</span><span class="p">[:,</span> <span class="n">ndim</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span><span class="bp">None</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">isotropic</span><span class="p">:</span>
+            <span class="n">size</span> <span class="o">=</span> <span class="n">tp_result</span><span class="p">[:,</span> <span class="n">ndim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="n">signal</span> <span class="o">=</span> <span class="n">tp_result</span><span class="p">[:,</span> <span class="n">ndim</span> <span class="o">+</span> <span class="mi">3</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">size</span> <span class="o">=</span> <span class="n">tp_result</span><span class="p">[:,</span> <span class="n">ndim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:</span><span class="mi">2</span><span class="o">*</span><span class="n">ndim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="n">signal</span> <span class="o">=</span> <span class="n">tp_result</span><span class="p">[:,</span> <span class="mi">2</span><span class="o">*</span><span class="n">ndim</span> <span class="o">+</span> <span class="mi">2</span><span class="p">]</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">f_frame</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">pos_columns</span><span class="p">]</span> <span class="o">=</span> <span class="n">pos</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">f_frame</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="s">&#39;signal&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">signal</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">f_frame</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">size_columns</span><span class="p">]</span> <span class="o">=</span> <span class="n">size</span>
+
+    <span class="k">if</span> <span class="n">param_mode</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">param_mode</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+    <span class="n">ff</span> <span class="o">=</span> <span class="n">FitFunctions</span><span class="p">(</span><span class="n">fit_function</span><span class="p">,</span> <span class="n">ndim</span><span class="p">,</span> <span class="n">isotropic</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">ff</span><span class="o">.</span><span class="n">params</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">param_mode</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">pos_columns</span> <span class="o">+</span> <span class="p">[</span><span class="s">&#39;signal&#39;</span><span class="p">,</span> <span class="s">&#39;background&#39;</span><span class="p">]:</span>
+            <span class="n">param_mode</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="s">&#39;const&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">param_mode</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="s">&#39;global&#39;</span>
+
+    <span class="n">bounds</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s">&#39;bounds&#39;</span><span class="p">,</span> <span class="nb">dict</span><span class="p">())</span>
+    <span class="k">if</span> <span class="n">bounds</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">bounds</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">size_col</span> <span class="ow">in</span> <span class="n">size_columns</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">size_col</span> <span class="o">+</span> <span class="s">&#39;_rel_diff&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">:</span>
+            <span class="n">bounds</span><span class="p">[</span><span class="n">size_col</span> <span class="o">+</span> <span class="s">&#39;_rel_diff&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+
+    <span class="n">f</span> <span class="o">=</span> <span class="n">refine_leastsq</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">reader</span><span class="p">,</span> <span class="n">diameter</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span>
+                       <span class="n">fit_function</span><span class="o">=</span><span class="n">fit_function</span><span class="p">,</span> <span class="n">param_mode</span><span class="o">=</span><span class="n">param_mode</span><span class="p">,</span>
+                       <span class="n">tol</span><span class="o">=</span><span class="n">tol</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">f</span><span class="p">[</span><span class="s">&#39;cost&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="p">{</span><span class="n">p</span><span class="p">:</span> <span class="n">f</span><span class="p">[</span><span class="n">p</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">param_mode</span> <span class="k">if</span> <span class="n">param_mode</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">==</span> <span class="s">&#39;var_global&#39;</span><span class="p">}</span>
+</pre></div>
+
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2016, Casper van der Wel.
+    </p>
+  </div>
+
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+  
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'1.0',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

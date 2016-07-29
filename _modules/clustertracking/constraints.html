@@ -1,0 +1,339 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>clustertracking.constraints &mdash; clustertracking 1.0 documentation</title>
+  
+
+  
+  
+
+  
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700,400italic,700italic|Roboto+Slab:400,700|Inconsolata:400,700&subset=latin,cyrillic' rel='stylesheet' type='text/css'>
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+    <link rel="top" title="clustertracking 1.0 documentation" href="../../index.html"/>
+        <link rel="up" title="Module code" href="../index.html"/> 
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/modernizr/2.6.2/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-nav-search">
+        
+          <a href="../../index.html" class="fa fa-home"> clustertracking</a>
+        
+        
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+        
+          
+          
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../api.html#core-functionality">Core functionality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api.html#constraints">Constraints</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api.html#model-image-creation">Model image creation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api.html#cluster-motion-analysis">Cluster motion analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api.html#helper-functions">Helper functions</a></li>
+</ul>
+</li>
+</ul>
+
+          
+        
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../../index.html">clustertracking</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+      
+    <li>clustertracking.constraints</li>
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document">
+            
+  <h1>Source code for clustertracking.constraints</h1><div class="highlight"><pre>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">division</span><span class="p">,</span> <span class="n">print_function</span><span class="p">,</span> <span class="n">absolute_import</span>
+
+<span class="kn">import</span> <span class="nn">six</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">.utils</span> <span class="kn">import</span> <span class="n">validate_tuple</span>
+<span class="kn">from</span> <span class="nn">.fitfunc</span> <span class="kn">import</span> <span class="n">vect_to_params</span>
+<span class="kn">from</span> <span class="nn">warnings</span> <span class="kn">import</span> <span class="n">warn</span>
+
+
+<span class="k">def</span> <span class="nf">_wrap_fun</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="n">params_const</span><span class="p">,</span> <span class="n">modes</span><span class="p">,</span> <span class="n">ids</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">wrapped</span><span class="p">(</span><span class="n">vect</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">params</span> <span class="o">=</span> <span class="n">vect_to_params</span><span class="p">(</span><span class="n">vect</span><span class="p">,</span> <span class="n">params_const</span><span class="p">,</span> <span class="n">modes</span><span class="p">,</span> <span class="n">ids</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">func</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">wrapped</span>
+
+
+<span class="k">def</span> <span class="nf">wrap_constraints</span><span class="p">(</span><span class="n">constraints</span><span class="p">,</span> <span class="n">params_const</span><span class="p">,</span> <span class="n">modes</span><span class="p">,</span> <span class="n">groups</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">constraints</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[]</span>
+
+    <span class="k">if</span> <span class="n">groups</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">cl_sizes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">params_const</span><span class="p">)],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">)</span>
+
+    <span class="n">result</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">cons</span> <span class="ow">in</span> <span class="n">constraints</span><span class="p">:</span>
+        <span class="n">cluster_size</span> <span class="o">=</span> <span class="n">cons</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;cluster_size&#39;</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">cluster_size</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="c"># provide all parameters to the constraint</span>
+            <span class="k">def</span> <span class="nf">wrapped</span><span class="p">(</span><span class="n">vect</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+                <span class="n">params</span> <span class="o">=</span> <span class="n">vect_to_params</span><span class="p">(</span><span class="n">vect</span><span class="p">,</span> <span class="n">params_const</span><span class="p">,</span> <span class="n">modes</span><span class="p">,</span> <span class="n">groups</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">cons</span><span class="p">[</span><span class="s">&#39;fun&#39;</span><span class="p">](</span><span class="n">params</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:],</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">groups</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">params_const</span><span class="p">)</span> <span class="o">!=</span> <span class="n">cluster_size</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="c"># provide all parameters to the constraint</span>
+            <span class="k">def</span> <span class="nf">wrapped</span><span class="p">(</span><span class="n">vect</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+                <span class="n">params</span> <span class="o">=</span> <span class="n">vect_to_params</span><span class="p">(</span><span class="n">vect</span><span class="p">,</span> <span class="n">params_const</span><span class="p">,</span> <span class="n">modes</span><span class="p">,</span> <span class="n">groups</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">cons</span><span class="p">[</span><span class="s">&#39;fun&#39;</span><span class="p">](</span><span class="n">params</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:],</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">cluster_size</span> <span class="ow">in</span> <span class="n">cl_sizes</span><span class="p">:</span>
+            <span class="n">groups_this</span> <span class="o">=</span> <span class="n">groups</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">cl_sizes</span> <span class="o">==</span> <span class="n">cluster_size</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">groups_this</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="c"># group the appropriate clusters together and return multiple values</span>
+            <span class="k">def</span> <span class="nf">wrapped</span><span class="p">(</span><span class="n">vect</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+                <span class="n">params</span> <span class="o">=</span> <span class="n">vect_to_params</span><span class="p">(</span><span class="n">vect</span><span class="p">,</span> <span class="n">params_const</span><span class="p">,</span> <span class="n">modes</span><span class="p">,</span> <span class="n">groups</span><span class="p">)</span>
+                <span class="n">params_grouped</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">params</span><span class="p">[</span><span class="n">g</span><span class="p">]</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">groups_this</span><span class="p">])</span>
+                <span class="k">return</span> <span class="n">cons</span><span class="p">[</span><span class="s">&#39;fun&#39;</span><span class="p">](</span><span class="n">params_grouped</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">cons_wrapped</span> <span class="o">=</span> <span class="n">cons</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">cons_wrapped</span><span class="p">[</span><span class="s">&#39;fun&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">wrapped</span>
+        <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cons_wrapped</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s">&#39;jac&#39;</span> <span class="ow">in</span> <span class="n">cons_wrapped</span><span class="p">:</span>
+            <span class="n">warn</span><span class="p">(</span><span class="s">&#39;Constraint jacobians are not implemented&#39;</span><span class="p">)</span>
+            <span class="k">del</span> <span class="n">cons_wrapped</span><span class="p">[</span><span class="s">&#39;jac&#39;</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">result</span>
+
+
+<span class="k">def</span> <span class="nf">_dimer_fun</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dist</span><span class="p">,</span> <span class="n">ndim</span><span class="p">):</span>
+    <span class="n">pos</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span><span class="mi">2</span><span class="o">+</span><span class="n">ndim</span><span class="p">]</span>  <span class="c"># get positions only</span>
+    <span class="k">return</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(((</span><span class="n">pos</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">pos</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">])</span><span class="o">/</span><span class="n">dist</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="c"># def _dimer_jac(x, dist, ndim):</span>
+<span class="c">#     result = np.zeros_like(x)</span>
+<span class="c">#     x = x[:, 2:2+ndim]  # get positions only</span>
+<span class="c">#     result[:, 2:2+ndim] = -2 * (x - x[[1, 0]])/dist[np.newaxis, :]**2</span>
+<span class="c">#     return result</span>
+
+
+<div class="viewcode-block" id="dimer"><a class="viewcode-back" href="../../generated/clustertracking.constraints.dimer.html#clustertracking.constraints.dimer">[docs]</a><span class="k">def</span> <span class="nf">dimer</span><span class="p">(</span><span class="n">dist</span><span class="p">,</span> <span class="n">ndim</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Constrain clusters of 2 at given distance.</span>
+
+<span class="sd">    Allows image anisotropy by providing a tuple to as distance&quot;&quot;&quot;</span>
+    <span class="n">dist</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">validate_tuple</span><span class="p">(</span><span class="n">dist</span><span class="p">,</span> <span class="n">ndim</span><span class="p">))</span>
+    <span class="k">return</span> <span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s">&#39;eq&#39;</span><span class="p">,</span> <span class="n">cluster_size</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">fun</span><span class="o">=</span><span class="n">_dimer_fun</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">dist</span><span class="p">,</span> <span class="n">ndim</span><span class="p">)),)</span>
+
+</div>
+<span class="k">def</span> <span class="nf">_trimer_fun</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dist</span><span class="p">,</span> <span class="n">ndim</span><span class="p">):</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span><span class="mi">2</span><span class="o">+</span><span class="n">ndim</span><span class="p">]</span>  <span class="c"># get positions only</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(((</span><span class="n">x</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">])</span><span class="o">/</span><span class="n">dist</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+                           <span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(((</span><span class="n">x</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">])</span><span class="o">/</span><span class="n">dist</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+                           <span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(((</span><span class="n">x</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">])</span><span class="o">/</span><span class="n">dist</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)))</span>
+
+
+<span class="c"># def _trimer_jac(x, dist, ndim, indices):</span>
+<span class="c">#     result = np.zeros_like(x)</span>
+<span class="c">#     x = x[:, -ndim:]  # get positions only</span>
+<span class="c">#     result[indices, -ndim:] = -2 * (x[indices] - x[indices[::-1]])/dist[np.newaxis, :]**2</span>
+<span class="c">#     return result</span>
+
+
+<div class="viewcode-block" id="trimer"><a class="viewcode-back" href="../../generated/clustertracking.constraints.trimer.html#clustertracking.constraints.trimer">[docs]</a><span class="k">def</span> <span class="nf">trimer</span><span class="p">(</span><span class="n">dist</span><span class="p">,</span> <span class="n">ndim</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Constrain clusters of 3 at given distance.</span>
+
+<span class="sd">    Allows image anisotropy by providing a tuple to as distance.</span>
+<span class="sd">    Constraints all 3 distances to the same distance.&quot;&quot;&quot;</span>
+    <span class="n">dist</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">validate_tuple</span><span class="p">(</span><span class="n">dist</span><span class="p">,</span> <span class="n">ndim</span><span class="p">))</span>
+    <span class="k">return</span> <span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s">&#39;eq&#39;</span><span class="p">,</span> <span class="n">cluster_size</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">fun</span><span class="o">=</span><span class="n">_trimer_fun</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">dist</span><span class="p">,</span> <span class="n">ndim</span><span class="p">)),)</span>
+
+</div>
+<span class="k">def</span> <span class="nf">_tetramer_fun_2d</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dist</span><span class="p">):</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span><span class="mi">4</span><span class="p">]</span>  <span class="c"># get positions only</span>
+    <span class="n">dists</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(((</span><span class="n">x</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">])</span><span class="o">/</span><span class="n">dist</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+                       <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(((</span><span class="n">x</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">])</span><span class="o">/</span><span class="n">dist</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+                       <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(((</span><span class="n">x</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">])</span><span class="o">/</span><span class="n">dist</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+                       <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(((</span><span class="n">x</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[:,</span> <span class="mi">3</span><span class="p">])</span><span class="o">/</span><span class="n">dist</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+                       <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(((</span><span class="n">x</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[:,</span> <span class="mi">3</span><span class="p">])</span><span class="o">/</span><span class="n">dist</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+                       <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(((</span><span class="n">x</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[:,</span> <span class="mi">3</span><span class="p">])</span><span class="o">/</span><span class="n">dist</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)))</span>
+    <span class="c"># take the 4 smallest: they should be 1</span>
+    <span class="c"># do not test the other 2: they are fixed by the 4 first constraints.</span>
+    <span class="n">dists</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">dists</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)[:</span><span class="mi">4</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">dists</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_tetramer_fun_3d</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dist</span><span class="p">):</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span><span class="mi">5</span><span class="p">]</span>  <span class="c"># get positions only</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(((</span><span class="n">x</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">])</span><span class="o">/</span><span class="n">dist</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+                           <span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(((</span><span class="n">x</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">])</span><span class="o">/</span><span class="n">dist</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+                           <span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(((</span><span class="n">x</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">])</span><span class="o">/</span><span class="n">dist</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+                           <span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(((</span><span class="n">x</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[:,</span> <span class="mi">3</span><span class="p">])</span><span class="o">/</span><span class="n">dist</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+                           <span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(((</span><span class="n">x</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[:,</span> <span class="mi">3</span><span class="p">])</span><span class="o">/</span><span class="n">dist</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+                           <span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(((</span><span class="n">x</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[:,</span> <span class="mi">3</span><span class="p">])</span><span class="o">/</span><span class="n">dist</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)))</span>
+
+<div class="viewcode-block" id="tetramer"><a class="viewcode-back" href="../../generated/clustertracking.constraints.tetramer.html#clustertracking.constraints.tetramer">[docs]</a><span class="k">def</span> <span class="nf">tetramer</span><span class="p">(</span><span class="n">dist</span><span class="p">,</span> <span class="n">ndim</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Constrain clusters of 4 at given distance.</span>
+
+<span class="sd">    For 2D: features are in a perfect square (4 constraints)</span>
+<span class="sd">    For 3D: features are constrained in a tetrahedron (6 constraints).</span>
+<span class="sd">    Allows image anisotropy by providing a tuple to as distance.&quot;&quot;&quot;</span>
+    <span class="n">dist</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">validate_tuple</span><span class="p">(</span><span class="n">dist</span><span class="p">,</span> <span class="n">ndim</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s">&#39;eq&#39;</span><span class="p">,</span> <span class="n">cluster_size</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">fun</span><span class="o">=</span><span class="n">_tetramer_fun_2d</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">dist</span><span class="p">,)),)</span>
+    <span class="k">elif</span> <span class="n">ndim</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s">&#39;eq&#39;</span><span class="p">,</span> <span class="n">cluster_size</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">fun</span><span class="o">=</span><span class="n">_tetramer_fun_3d</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">dist</span><span class="p">,)),)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+</div>
+<span class="k">def</span> <span class="nf">_dimer_fun_global</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mpp</span><span class="p">,</span> <span class="n">ndim</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[]</span>
+    <span class="n">pos</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span><span class="mi">2</span><span class="o">+</span><span class="n">ndim</span><span class="p">]</span>  <span class="c"># get positions only, shape (n_clusters, 2, ndim)</span>
+    <span class="n">dist_squared</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(((</span><span class="n">pos</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">pos</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">])</span><span class="o">*</span><span class="n">mpp</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">dist_squared</span><span class="p">)</span>
+
+
+<span class="c"># def _dimer_jac_global(x, mpp, ndim):</span>
+<span class="c">#     if x.ndim == 2 or len(x) &lt;= 1:</span>
+<span class="c">#         return []</span>
+<span class="c">#     result = np.zeros((x.shape[0] - 1,) + x.shape)</span>
+<span class="c">#     x = x[..., -ndim:]  # get positions only, shape (n_clusters, 2, ndim)</span>
+<span class="c">#     _jac = -2 * (x - x[:, [1, 0]]) * mpp**2</span>
+<span class="c">#     # result[:, :-1, :, -ndim] = _jac</span>
+<span class="c">#     # result[:, 1:, :, -ndim] = -1*_jac</span>
+<span class="c">#</span>
+<span class="c">#     for i in range(x.shape[0] - 1):</span>
+<span class="c">#          result[i, i, :, -ndim:] = _jac[i]</span>
+<span class="c">#          result[i, i + 1, :, -ndim:] = -_jac[i + 1]</span>
+<span class="c">#     return result</span>
+
+
+<div class="viewcode-block" id="dimer_global"><a class="viewcode-back" href="../../generated/clustertracking.constraints.dimer_global.html#clustertracking.constraints.dimer_global">[docs]</a><span class="k">def</span> <span class="nf">dimer_global</span><span class="p">(</span><span class="n">mpp</span><span class="p">,</span> <span class="n">ndim</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Constrain clusters of 2 to a constant, unknown distance.</span>
+
+<span class="sd">    Allows image anisotropy by providing ``mpp``, microns per pixel. The</span>
+<span class="sd">    number of constraints equals the number of frames - 1.&quot;&quot;&quot;</span>
+    <span class="c"># the jacobian seems to slow things down.</span>
+    <span class="c"># in tests: 26 iterations without, 198 with</span>
+    <span class="n">mpp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">validate_tuple</span><span class="p">(</span><span class="n">mpp</span><span class="p">,</span> <span class="n">ndim</span><span class="p">))</span>
+    <span class="k">return</span> <span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s">&#39;eq&#39;</span><span class="p">,</span> <span class="n">fun</span><span class="o">=</span><span class="n">_dimer_fun_global</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">mpp</span><span class="p">,</span> <span class="n">ndim</span><span class="p">,)),)</span></div>
+</pre></div>
+
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2016, Casper van der Wel.
+    </p>
+  </div>
+
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+  
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'1.0',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

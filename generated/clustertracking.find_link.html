@@ -1,0 +1,256 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>clustertracking.find_link &mdash; clustertracking 1.0 documentation</title>
+  
+
+  
+  
+
+  
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700,400italic,700italic|Roboto+Slab:400,700|Inconsolata:400,700&subset=latin,cyrillic' rel='stylesheet' type='text/css'>
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+    <link rel="top" title="clustertracking 1.0 documentation" href="../index.html"/> 
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/modernizr/2.6.2/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-nav-search">
+        
+          <a href="../index.html" class="fa fa-home"> clustertracking</a>
+        
+        
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+        
+          
+          
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../api.html">API reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#core-functionality">Core functionality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#constraints">Constraints</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#model-image-creation">Model image creation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#cluster-motion-analysis">Cluster motion analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#helper-functions">Helper functions</a></li>
+</ul>
+</li>
+</ul>
+
+          
+        
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../index.html">clustertracking</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../index.html">Docs</a> &raquo;</li>
+      
+    <li>clustertracking.find_link</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          <a href="../_sources/generated/clustertracking.find_link.txt" rel="nofollow"> View page source</a>
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document">
+            
+  <div class="section" id="clustertracking-find-link">
+<h1>clustertracking.find_link<a class="headerlink" href="#clustertracking-find-link" title="Permalink to this headline">¶</a></h1>
+<dl class="function">
+<dt id="clustertracking.find_link">
+<code class="descclassname">clustertracking.</code><code class="descname">find_link</code><span class="sig-paren">(</span><em>reader</em>, <em>search_range</em>, <em>separation</em>, <em>diameter=None</em>, <em>memory=0</em>, <em>minmass=0</em>, <em>noise_size=1</em>, <em>smoothing_size=None</em>, <em>threshold=None</em>, <em>percentile=64</em>, <em>before_link=None</em>, <em>after_link=None</em>, <em>refine=False</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/clustertracking/find_link.html#find_link"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#clustertracking.find_link" title="Permalink to this definition">¶</a></dt>
+<dd><p>Find and link features in an image sequence</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>reader</strong> : pims.FramesSequence</p>
+<p><strong>search_range</strong> : number or tuple</p>
+<blockquote>
+<div><p>maximum displacement of features between subsequent frames</p>
+</div></blockquote>
+<p><strong>separation</strong> : number or tuple</p>
+<blockquote>
+<div><p>minimum separation distance between features</p>
+</div></blockquote>
+<p><strong>diameter</strong> : number or tuple, optional</p>
+<blockquote>
+<div><p>feature diameter, used for characterization only. Default: separation.</p>
+</div></blockquote>
+<p><strong>memory</strong> : number, optional</p>
+<blockquote>
+<div><p>number of frames that features are allowed to dissappear. Experimental.
+Default 0.</p>
+</div></blockquote>
+<p><strong>minmass</strong> : number, optional</p>
+<blockquote>
+<div><p>minimum integrated intensity (in masked image). Default 0.</p>
+</div></blockquote>
+<p><strong>noise_size</strong> : number or tuple, optional</p>
+<blockquote>
+<div><p>Size of Gaussian kernel with whith the image is convoluted for noise
+reduction. Default 1.</p>
+</div></blockquote>
+<p><strong>smoothing_size</strong> : number or tuple, optional</p>
+<blockquote>
+<div><p>Size of rolling average box for background subtraction.
+By default, equals separation. This may introduce bias when refined on
+the background subtracted image!</p>
+</div></blockquote>
+<p><strong>threshold</strong> : number, optional</p>
+<blockquote>
+<div><p>Threshold value for image. Default None.</p>
+</div></blockquote>
+<p><strong>percentile</strong> : number, optional</p>
+<blockquote>
+<div><p>The upper percentile of intensities in the image are considered as
+feature locations. Default 64.</p>
+</div></blockquote>
+<p><strong>before_link</strong> : function, optional</p>
+<blockquote>
+<div><p>This function is executed after the initial find of each frame, but
+but before the linking and relocating.
+It should take the following arguments (or <a href="#id1"><span class="problematic" id="id2">**</span></a>kwargs):</p>
+<blockquote>
+<div><p>coords, reader, image, diameter, separation, search_range, margin,
+minmass.</p>
+</div></blockquote>
+<p>And it should return coords. coords is an ndarray containing the
+initially found feature coordinates. image and reader are preprocessed.
+Default None.</p>
+</div></blockquote>
+<p><strong>after_link</strong> : function, optional</p>
+<blockquote>
+<div><p>This function is executed after the find and link of each frame. It
+should not change the number of features.
+It should take the following arguments (or <a href="#id3"><span class="problematic" id="id4">**</span></a>kwargs):</p>
+<blockquote>
+<div><p>features, reader, image, diameter, separation, search_range, margin,
+minmass.</p>
+</div></blockquote>
+<p>And it should return features. features is a DataFrame containing the
+feature coordinates and characterization.
+image and reader are preprocessed. Default None.</p>
+</div></blockquote>
+<p><strong>refine</strong> : boolean, optional</p>
+<blockquote class="last">
+<div><p>Convenience parameter to do center-of-mass refinement. Cannot be used
+combined with an after_link function. Default False.</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+
+
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2016, Casper van der Wel.
+    </p>
+  </div>
+
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+  
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../',
+            VERSION:'1.0',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../_static/jquery.js"></script>
+      <script type="text/javascript" src="../_static/underscore.js"></script>
+      <script type="text/javascript" src="../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

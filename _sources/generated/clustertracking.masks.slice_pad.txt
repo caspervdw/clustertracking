@@ -1,0 +1,6 @@
+clustertracking.masks.slice_pad
+===============================
+
+.. currentmodule:: clustertracking.masks
+
+.. autofunction:: slice_pad

@@ -1,0 +1,6 @@
+clustertracking.artificial.get_multiple
+=======================================
+
+.. currentmodule:: clustertracking.artificial
+
+.. autofunction:: get_multiple

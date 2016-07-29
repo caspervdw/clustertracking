@@ -1,0 +1,1162 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>clustertracking.find_link &mdash; clustertracking 1.0 documentation</title>
+  
+
+  
+  
+
+  
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700,400italic,700italic|Roboto+Slab:400,700|Inconsolata:400,700&subset=latin,cyrillic' rel='stylesheet' type='text/css'>
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+    <link rel="top" title="clustertracking 1.0 documentation" href="../../index.html"/>
+        <link rel="up" title="Module code" href="../index.html"/> 
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/modernizr/2.6.2/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-nav-search">
+        
+          <a href="../../index.html" class="fa fa-home"> clustertracking</a>
+        
+        
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+        
+          
+          
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../api.html#core-functionality">Core functionality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api.html#constraints">Constraints</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api.html#model-image-creation">Model image creation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api.html#cluster-motion-analysis">Cluster motion analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api.html#helper-functions">Helper functions</a></li>
+</ul>
+</li>
+</ul>
+
+          
+        
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../../index.html">clustertracking</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+      
+    <li>clustertracking.find_link</li>
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document">
+            
+  <h1>Source code for clustertracking.find_link</h1><div class="highlight"><pre>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="p">(</span><span class="n">absolute_import</span><span class="p">,</span> <span class="n">division</span><span class="p">,</span> <span class="n">print_function</span><span class="p">,</span>
+                        <span class="n">unicode_literals</span><span class="p">)</span>
+<span class="kn">import</span> <span class="nn">six</span>
+<span class="kn">from</span> <span class="nn">six.moves</span> <span class="kn">import</span> <span class="nb">range</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">itertools</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">deque</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="kn">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">scipy.spatial</span> <span class="kn">import</span> <span class="n">cKDTree</span>
+<span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">ndimage</span>
+
+<span class="kn">import</span> <span class="nn">trackpy</span> <span class="kn">as</span> <span class="nn">tp</span>
+<span class="kn">from</span> <span class="nn">trackpy.utils</span> <span class="kn">import</span> <span class="n">validate_tuple</span>
+<span class="kn">from</span> <span class="nn">trackpy.masks</span> <span class="kn">import</span> <span class="n">r_squared_mask</span><span class="p">,</span> <span class="n">x_squared_masks</span>
+
+<span class="kn">from</span> <span class="nn">.masks</span> <span class="kn">import</span> <span class="n">slice_image</span><span class="p">,</span> <span class="n">mask_image</span><span class="p">,</span> <span class="n">slice_pad</span>
+<span class="kn">from</span> <span class="nn">.find</span> <span class="kn">import</span> <span class="n">grey_dilation</span><span class="p">,</span> <span class="n">drop_close</span>
+<span class="kn">from</span> <span class="nn">.utils</span> <span class="kn">import</span> <span class="n">default_pos_columns</span><span class="p">,</span> <span class="n">is_isotropic</span>
+<span class="kn">from</span> <span class="nn">.preprocessing</span> <span class="kn">import</span> <span class="n">preprocess</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">__name__</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">query_point</span><span class="p">(</span><span class="n">pos1</span><span class="p">,</span> <span class="n">pos2</span><span class="p">,</span> <span class="n">max_dist</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Return elements of pos2 that have at least one element of pos1 closer</span>
+<span class="sd">    than max_dist &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">is_isotropic</span><span class="p">(</span><span class="n">max_dist</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">max_dist</span><span class="p">,</span> <span class="s">&#39;__iter__&#39;</span><span class="p">):</span>
+            <span class="n">max_dist</span> <span class="o">=</span> <span class="n">max_dist</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">kdtree</span> <span class="o">=</span> <span class="n">cKDTree</span><span class="p">(</span><span class="n">pos2</span><span class="p">,</span> <span class="mi">30</span><span class="p">)</span>
+        <span class="n">found</span> <span class="o">=</span> <span class="n">kdtree</span><span class="o">.</span><span class="n">query_ball_point</span><span class="p">(</span><span class="n">pos1</span><span class="p">,</span> <span class="n">max_dist</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">kdtree</span> <span class="o">=</span> <span class="n">cKDTree</span><span class="p">(</span><span class="n">pos2</span> <span class="o">/</span> <span class="n">max_dist</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">:],</span> <span class="mi">30</span><span class="p">)</span>
+        <span class="n">found</span> <span class="o">=</span> <span class="n">kdtree</span><span class="o">.</span><span class="n">query_ball_point</span><span class="p">(</span><span class="n">pos1</span> <span class="o">/</span> <span class="n">max_dist</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">:],</span> <span class="mf">1.</span><span class="p">)</span>
+
+    <span class="n">found</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="n">i</span> <span class="k">for</span> <span class="n">sl</span> <span class="ow">in</span> <span class="n">found</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">sl</span><span class="p">])</span>  <span class="c"># ravel</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">found</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">pos2</span><span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">found</span><span class="p">)]</span>
+
+
+<span class="k">def</span> <span class="nf">characterize</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">image</span><span class="p">,</span> <span class="n">radius</span><span class="p">,</span> <span class="n">isotropic</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">scale_factor</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">scale_factor</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">scale_factor</span> <span class="o">=</span> <span class="n">image</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s">&#39;scale_factor&#39;</span><span class="p">]</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">AttributeError</span><span class="p">,</span> <span class="ne">KeyError</span><span class="p">):</span>
+            <span class="n">scale_factor</span> <span class="o">=</span> <span class="mf">1.</span>
+    <span class="n">ndim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">radius</span><span class="p">)</span>
+    <span class="n">mass</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">))</span>
+    <span class="n">signal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">isotropic</span><span class="p">:</span>
+        <span class="n">rg_mask</span> <span class="o">=</span> <span class="n">r_squared_mask</span><span class="p">(</span><span class="n">radius</span><span class="p">,</span> <span class="n">ndim</span><span class="p">)</span>  <span class="c"># memoized</span>
+        <span class="n">size</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">rg_mask</span> <span class="o">=</span> <span class="n">x_squared_masks</span><span class="p">(</span><span class="n">radius</span><span class="p">,</span> <span class="n">ndim</span><span class="p">)</span>  <span class="c"># memoized</span>
+        <span class="n">size_ax</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">ndim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="n">size</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">radius</span><span class="p">)))</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">coord</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">coords</span><span class="p">):</span>
+        <span class="n">im</span><span class="p">,</span> <span class="n">origin</span> <span class="o">=</span> <span class="n">slice_pad</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">coord</span><span class="p">,</span> <span class="n">radius</span><span class="p">)</span>
+        <span class="n">im</span> <span class="o">=</span> <span class="n">mask_image</span><span class="p">(</span><span class="n">coord</span><span class="p">,</span> <span class="n">im</span><span class="p">,</span> <span class="n">radius</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>
+        <span class="n">_mass</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">im</span><span class="p">)</span>
+        <span class="n">mass</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">_mass</span>
+        <span class="n">signal</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">im</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">isotropic</span><span class="p">:</span>
+            <span class="n">size</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">rg_mask</span> <span class="o">*</span> <span class="n">im</span><span class="p">)</span> <span class="o">/</span> <span class="n">_mass</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">size</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">ndim</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">rg_mask</span> <span class="o">*</span> <span class="n">im</span><span class="p">,</span>
+                                            <span class="n">axis</span><span class="o">=</span><span class="n">size_ax</span><span class="p">)</span> <span class="o">/</span> <span class="n">_mass</span><span class="p">)</span>
+
+    <span class="n">result</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">mass</span><span class="o">=</span><span class="n">mass</span> <span class="o">/</span> <span class="n">scale_factor</span><span class="p">,</span> <span class="n">signal</span><span class="o">=</span><span class="n">signal</span> <span class="o">/</span> <span class="n">scale_factor</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">isotropic</span><span class="p">:</span>
+        <span class="n">result</span><span class="p">[</span><span class="s">&#39;size&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">size</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">_size</span><span class="p">,</span> <span class="n">key</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">size</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="p">[</span><span class="s">&#39;size_z&#39;</span><span class="p">,</span> <span class="s">&#39;size_y&#39;</span><span class="p">,</span> <span class="s">&#39;size_x&#39;</span><span class="p">][</span><span class="o">-</span><span class="n">ndim</span><span class="p">:]):</span>
+            <span class="n">result</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">_size</span>
+    <span class="k">return</span> <span class="n">result</span>
+
+
+<span class="k">class</span> <span class="nc">SubnetOversizeException</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="k">pass</span>
+
+
+<span class="k">class</span> <span class="nc">TrackUnstored</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">set_counter</span><span class="p">(</span><span class="n">cls</span><span class="p">):</span>
+        <span class="n">cls</span><span class="o">.</span><span class="n">counter</span> <span class="o">=</span> <span class="n">itertools</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">point</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">counter</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">point</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">add_point</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">add_point</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">point</span><span class="p">):</span>
+        <span class="n">point</span><span class="o">.</span><span class="n">add_to_track</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">incr_memory</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_remembered</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_remembered</span> <span class="o">=</span> <span class="mi">1</span>
+
+    <span class="k">def</span> <span class="nf">report_memory</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_remembered</span>
+            <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_remembered</span>
+            <span class="k">return</span> <span class="n">m</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">0</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s">&quot;&lt;</span><span class="si">%s</span><span class="s"> </span><span class="si">%d</span><span class="s">&gt;&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__class__</span><span class="o">.</span><span class="n">__name__</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">indx</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">PointND</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">set_counter</span><span class="p">(</span><span class="n">cls</span><span class="p">):</span>
+        <span class="n">cls</span><span class="o">.</span><span class="n">counter</span> <span class="o">=</span> <span class="n">itertools</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">pos</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">extra_data</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_track</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">uuid</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">counter</span><span class="p">)</span>         <span class="c"># unique id for __hash__</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">t</span> <span class="o">=</span> <span class="n">t</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">pos</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="nb">id</span>
+        <span class="k">if</span> <span class="n">extra_data</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">extra_data</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">extra_data</span> <span class="o">=</span> <span class="n">extra_data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">back_cands</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">forward_cands</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subnet</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">relocate_neighbors</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span> <span class="nf">distance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other_point</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">pos</span> <span class="o">-</span> <span class="n">other_point</span><span class="o">.</span><span class="n">pos</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">add_to_track</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">track</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_track</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&quot;trying to add a particle already in a track&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_track</span> <span class="o">=</span> <span class="n">track</span>
+
+    <span class="k">def</span> <span class="nf">remove_from_track</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">track</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_track</span> <span class="o">!=</span> <span class="n">track</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&quot;Point not associated with given track&quot;</span><span class="p">)</span>
+        <span class="n">track</span><span class="o">.</span><span class="n">remove_point</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">in_track</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_track</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">track</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_track</span>
+
+
+<span class="k">class</span> <span class="nc">TreeFinder</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">search_range</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Takes a list of particles.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ndim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">search_range</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">search_range</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_2d</span><span class="p">(</span><span class="n">search_range</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="n">points</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">points</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">points</span> <span class="o">=</span> <span class="n">points</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rebuild</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">points</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">add_point</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pt</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">points</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pt</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_clean</span> <span class="o">=</span> <span class="bp">False</span>
+
+    <span class="k">def</span> <span class="nf">rebuild</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">points</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_kdtree</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">coords</span> <span class="o">=</span> <span class="n">_get_pcoords</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">points</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_range</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_kdtree</span> <span class="o">=</span> <span class="n">cKDTree</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="mi">15</span><span class="p">)</span>
+        <span class="c"># This could be tuned</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_clean</span> <span class="o">=</span> <span class="bp">True</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">kdtree</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clean</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">rebuild</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_kdtree</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">coords</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clean</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_kdtree</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="k">return</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_kdtree</span><span class="o">.</span><span class="n">data</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_range</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_get_pcoords</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">points</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">coords_rescaled</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clean</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_kdtree</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="k">return</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_kdtree</span><span class="o">.</span><span class="n">data</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_get_pcoords</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">points</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_range</span>
+
+    <span class="k">def</span> <span class="nf">to_dataframe</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coords</span>
+        <span class="k">if</span> <span class="n">coords</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">default_pos_columns</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ndim</span><span class="p">),</span>
+                            <span class="n">index</span><span class="o">=</span><span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">uuid</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">points</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">points</span><span class="p">:</span>
+            <span class="n">data</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">uuid</span><span class="p">,</span> <span class="s">&#39;frame&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">t</span>
+            <span class="n">data</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">uuid</span><span class="p">,</span> <span class="s">&#39;particle&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">track</span><span class="o">.</span><span class="n">id</span>
+            <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">p</span><span class="o">.</span><span class="n">extra_data</span><span class="p">:</span>
+                <span class="n">data</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">uuid</span><span class="p">,</span> <span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">extra_data</span><span class="p">[</span><span class="n">col</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">data</span>
+
+    <span class="k">def</span> <span class="nf">query_points</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pos</span><span class="p">,</span> <span class="n">max_dist_normed</span><span class="o">=</span><span class="mf">1.</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">kdtree</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">pos_norm</span> <span class="o">=</span> <span class="n">pos</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_range</span>
+        <span class="n">found</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">kdtree</span><span class="o">.</span><span class="n">query_ball_point</span><span class="p">(</span><span class="n">pos_norm</span><span class="p">,</span> <span class="n">max_dist_normed</span><span class="p">)</span>
+        <span class="n">found</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="n">i</span> <span class="k">for</span> <span class="n">sl</span> <span class="ow">in</span> <span class="n">found</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">sl</span><span class="p">])</span>  <span class="c"># ravel</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">found</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">found</span><span class="p">)]</span>
+
+
+<span class="k">class</span> <span class="nc">Subnets</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source_hash</span><span class="p">,</span> <span class="n">dest_hash</span><span class="p">,</span> <span class="n">max_neighbors</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_neighbors</span> <span class="o">=</span> <span class="n">max_neighbors</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">source_hash</span> <span class="o">=</span> <span class="n">source_hash</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dest_hash</span> <span class="o">=</span> <span class="n">dest_hash</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_candidates</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_subnets</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_hash</span><span class="o">.</span><span class="n">points</span><span class="p">:</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">forward_cands</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">subnet</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dest_hash</span><span class="o">.</span><span class="n">points</span><span class="p">):</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">backward_cands</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">subnet</span> <span class="o">=</span> <span class="n">i</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_subnets</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(),</span> <span class="p">{</span><span class="n">p</span><span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">add_candidates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source_hash</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">dest_hash</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">source_hash</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">source_hash</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_hash</span>
+        <span class="k">if</span> <span class="n">dest_hash</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">dest_hash</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dest_hash</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">source_hash</span><span class="o">.</span><span class="n">points</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">dest_hash</span><span class="o">.</span><span class="n">points</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">dists</span><span class="p">,</span> <span class="n">inds</span> <span class="o">=</span> <span class="n">source_hash</span><span class="o">.</span><span class="n">kdtree</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">dest_hash</span><span class="o">.</span><span class="n">coords_rescaled</span><span class="p">,</span>
+                                               <span class="bp">self</span><span class="o">.</span><span class="n">max_neighbors</span><span class="p">,</span>
+                                               <span class="n">distance_upper_bound</span><span class="o">=</span><span class="mi">1</span><span class="o">+</span><span class="mf">1e-7</span><span class="p">)</span>
+        <span class="n">nn</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">dists</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>  <span class="c"># Number of neighbors of each particle</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dest_hash</span><span class="o">.</span><span class="n">points</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nn</span><span class="p">[</span><span class="n">i</span><span class="p">]):</span>
+                <span class="n">wp</span> <span class="o">=</span> <span class="n">source_hash</span><span class="o">.</span><span class="n">points</span><span class="p">[</span><span class="n">inds</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]]</span>
+                <span class="n">p</span><span class="o">.</span><span class="n">back_cands</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">wp</span><span class="p">,</span> <span class="n">dists</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]))</span>
+                <span class="n">wp</span><span class="o">.</span><span class="n">forward_cands</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">p</span><span class="p">,</span> <span class="n">dists</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]))</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">update_subnets</span><span class="p">(</span><span class="n">wp</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">sort_candidates</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_hash</span><span class="o">.</span><span class="n">points</span><span class="p">:</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">forward_cands</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">dest_hash</span><span class="o">.</span><span class="n">points</span><span class="p">:</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">back_cands</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">add_dest_points</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source_points</span><span class="p">,</span> <span class="n">dest_points</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Dest_hash should only contain new points&quot;&quot;&quot;</span>
+        <span class="c"># TODO is kdtree really faster here than brute force ?</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">dest_points</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">source_hash</span> <span class="o">=</span> <span class="n">TreeFinder</span><span class="p">(</span><span class="n">source_points</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_hash</span><span class="o">.</span><span class="n">search_range</span><span class="p">)</span>
+        <span class="n">dest_hash</span> <span class="o">=</span> <span class="n">TreeFinder</span><span class="p">(</span><span class="n">dest_points</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dest_hash</span><span class="o">.</span><span class="n">search_range</span><span class="p">)</span>
+        <span class="n">dists</span><span class="p">,</span> <span class="n">inds</span> <span class="o">=</span> <span class="n">source_hash</span><span class="o">.</span><span class="n">kdtree</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">dest_hash</span><span class="o">.</span><span class="n">coords_rescaled</span><span class="p">,</span>
+                                               <span class="nb">max</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">source_points</span><span class="p">),</span> <span class="mi">2</span><span class="p">),</span>
+                                               <span class="n">distance_upper_bound</span><span class="o">=</span><span class="mi">1</span><span class="o">+</span><span class="mf">1e-7</span><span class="p">)</span>
+        <span class="n">nn</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">dists</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>  <span class="c"># Number of neighbors of each particle</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">dest</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dest_hash</span><span class="o">.</span><span class="n">points</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nn</span><span class="p">[</span><span class="n">i</span><span class="p">]):</span>
+                <span class="n">source</span> <span class="o">=</span> <span class="n">source_hash</span><span class="o">.</span><span class="n">points</span><span class="p">[</span><span class="n">inds</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]]</span>
+                <span class="n">dest</span><span class="o">.</span><span class="n">back_cands</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">source</span><span class="p">,</span> <span class="n">dists</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]))</span>
+                <span class="n">source</span><span class="o">.</span><span class="n">forward_cands</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">dest</span><span class="p">,</span> <span class="n">dists</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]))</span>
+                <span class="c"># source particle always has a subnet, add the dest particle</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_subnets</span><span class="p">[</span><span class="n">source</span><span class="o">.</span><span class="n">subnet</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">dest</span><span class="p">)</span>
+                <span class="n">dest</span><span class="o">.</span><span class="n">subnet</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">subnet</span>
+
+        <span class="c"># sort candidates again because they might have changed</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">source_hash</span><span class="o">.</span><span class="n">points</span><span class="p">:</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">forward_cands</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">dest_hash</span><span class="o">.</span><span class="n">points</span><span class="p">:</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">back_cands</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">update_subnets</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">dest</span><span class="p">):</span>
+        <span class="n">i1</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">subnet</span>
+        <span class="n">i2</span> <span class="o">=</span> <span class="n">dest</span><span class="o">.</span><span class="n">subnet</span>
+        <span class="k">if</span> <span class="n">i1</span> <span class="ow">is</span> <span class="bp">None</span> <span class="ow">and</span> <span class="n">i2</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;No subnet for added destination particle&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">i1</span> <span class="o">==</span> <span class="n">i2</span><span class="p">:</span>  <span class="c"># if a and b are already in the same subnet, do nothing</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="n">i1</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>  <span class="c"># source did not belong to a subset before</span>
+            <span class="c"># just add it</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_subnets</span><span class="p">[</span><span class="n">i2</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+            <span class="n">source</span><span class="o">.</span><span class="n">subnet</span> <span class="o">=</span> <span class="n">i2</span>
+        <span class="k">elif</span> <span class="n">i2</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>  <span class="c"># dest did not belong to a subset before</span>
+            <span class="c"># just add it</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_subnets</span><span class="p">[</span><span class="n">i1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">dest</span><span class="p">)</span>
+            <span class="n">dest</span><span class="o">.</span><span class="n">subnet</span> <span class="o">=</span> <span class="n">i1</span>
+        <span class="k">else</span><span class="p">:</span>   <span class="c"># source belongs to subset i1 before</span>
+            <span class="c"># merge the subnets</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_subnets</span><span class="p">[</span><span class="n">i2</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_subnets</span><span class="p">[</span><span class="n">i1</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_subnets</span><span class="p">[</span><span class="n">i2</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_subnets</span><span class="p">[</span><span class="n">i1</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
+            <span class="c"># update the subnet identifiers per point</span>
+            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">chain</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_subnets</span><span class="p">[</span><span class="n">i1</span><span class="p">]):</span>
+                <span class="n">p</span><span class="o">.</span><span class="n">subnet</span> <span class="o">=</span> <span class="n">i2</span>
+            <span class="c"># and delete the old source subnet</span>
+            <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subnets</span><span class="p">[</span><span class="n">i1</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">merge_lost_subnets</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Merge subnets having lost particles, normally r = 2 * search range&quot;&quot;&quot;</span>
+        <span class="c"># add source particles without any destination particle for relocation</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_subnets</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">counter</span> <span class="o">=</span> <span class="n">itertools</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_subnets</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">counter</span> <span class="o">=</span> <span class="n">itertools</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_hash</span><span class="o">.</span><span class="n">points</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">forward_cands</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">subnet</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">counter</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_subnets</span><span class="p">[</span><span class="n">subnet</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">p</span><span class="p">},</span> <span class="nb">set</span><span class="p">()</span>
+                <span class="n">p</span><span class="o">.</span><span class="n">subnet</span> <span class="o">=</span> <span class="n">subnet</span>
+
+        <span class="c"># list subnets that have lost particles</span>
+        <span class="n">lost_source</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subnets</span><span class="p">:</span>
+            <span class="n">source</span><span class="p">,</span> <span class="n">dest</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subnets</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+            <span class="n">shortage</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">source</span><span class="p">)</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">dest</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">shortage</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">lost_source</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">lost_source</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">lost_hash</span> <span class="o">=</span> <span class="n">TreeFinder</span><span class="p">(</span><span class="n">lost_source</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_hash</span><span class="o">.</span><span class="n">search_range</span><span class="p">)</span>
+        <span class="n">dists</span><span class="p">,</span> <span class="n">inds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_hash</span><span class="o">.</span><span class="n">kdtree</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">lost_hash</span><span class="o">.</span><span class="n">coords_rescaled</span><span class="p">,</span>
+                                                    <span class="bp">self</span><span class="o">.</span><span class="n">max_neighbors</span><span class="p">,</span>
+                                                    <span class="n">distance_upper_bound</span><span class="o">=</span><span class="mi">2</span><span class="o">+</span><span class="mf">1e-7</span><span class="p">)</span>
+        <span class="n">nn</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">dists</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>  <span class="c"># Number of neighbors of each particle</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lost_hash</span><span class="o">.</span><span class="n">points</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nn</span><span class="p">[</span><span class="n">i</span><span class="p">]):</span>
+                <span class="n">wp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_hash</span><span class="o">.</span><span class="n">points</span><span class="p">[</span><span class="n">inds</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]]</span>
+                <span class="n">i1</span><span class="p">,</span> <span class="n">i2</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">subnet</span><span class="p">,</span> <span class="n">wp</span><span class="o">.</span><span class="n">subnet</span>
+                <span class="k">if</span> <span class="n">i1</span> <span class="o">!=</span> <span class="n">i2</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">i2</span> <span class="o">&gt;</span> <span class="n">i1</span><span class="p">:</span>
+                        <span class="n">i1</span><span class="p">,</span> <span class="n">i2</span> <span class="o">=</span> <span class="n">i2</span><span class="p">,</span> <span class="n">i1</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_subnets</span><span class="p">[</span><span class="n">i2</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_subnets</span><span class="p">[</span><span class="n">i1</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_subnets</span><span class="p">[</span><span class="n">i2</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_subnets</span><span class="p">[</span><span class="n">i1</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
+                    <span class="c"># update the subnet identifiers per point</span>
+                    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">chain</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_subnets</span><span class="p">[</span><span class="n">i1</span><span class="p">]):</span>
+                        <span class="n">p</span><span class="o">.</span><span class="n">subnet</span> <span class="o">=</span> <span class="n">i2</span>
+                    <span class="c"># and delete the old source subnet</span>
+                    <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subnets</span><span class="p">[</span><span class="n">i1</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_subnets</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subnets</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">lost</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_hash</span><span class="o">.</span><span class="n">points</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">subnet</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">]</span>
+
+
+<span class="k">def</span> <span class="nf">_sort_key_spl_dpl</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">pos</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">pos</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="find_link"><a class="viewcode-back" href="../../generated/clustertracking.find_link.html#clustertracking.find_link">[docs]</a><span class="k">def</span> <span class="nf">find_link</span><span class="p">(</span><span class="n">reader</span><span class="p">,</span> <span class="n">search_range</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span> <span class="n">diameter</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">memory</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+              <span class="n">minmass</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">noise_size</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">smoothing_size</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+              <span class="n">percentile</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">before_link</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">after_link</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">refine</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Find and link features in an image sequence</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    reader : pims.FramesSequence</span>
+<span class="sd">    search_range : number or tuple</span>
+<span class="sd">        maximum displacement of features between subsequent frames</span>
+<span class="sd">    separation : number or tuple</span>
+<span class="sd">        minimum separation distance between features</span>
+<span class="sd">    diameter : number or tuple, optional</span>
+<span class="sd">        feature diameter, used for characterization only. Default: separation.</span>
+<span class="sd">    memory : number, optional</span>
+<span class="sd">        number of frames that features are allowed to dissappear. Experimental.</span>
+<span class="sd">        Default 0.</span>
+<span class="sd">    minmass : number, optional</span>
+<span class="sd">        minimum integrated intensity (in masked image). Default 0.</span>
+<span class="sd">    noise_size : number or tuple, optional</span>
+<span class="sd">        Size of Gaussian kernel with whith the image is convoluted for noise</span>
+<span class="sd">        reduction. Default 1.</span>
+<span class="sd">    smoothing_size : number or tuple, optional</span>
+<span class="sd">        Size of rolling average box for background subtraction.</span>
+<span class="sd">        By default, equals separation. This may introduce bias when refined on</span>
+<span class="sd">        the background subtracted image!</span>
+<span class="sd">    threshold : number, optional</span>
+<span class="sd">        Threshold value for image. Default None.</span>
+<span class="sd">    percentile : number, optional</span>
+<span class="sd">        The upper percentile of intensities in the image are considered as</span>
+<span class="sd">        feature locations. Default 64.</span>
+<span class="sd">    before_link : function, optional</span>
+<span class="sd">        This function is executed after the initial find of each frame, but</span>
+<span class="sd">        but before the linking and relocating.</span>
+<span class="sd">        It should take the following arguments (or **kwargs):</span>
+<span class="sd">            coords, reader, image, diameter, separation, search_range, margin,</span>
+<span class="sd">            minmass.</span>
+<span class="sd">        And it should return coords. coords is an ndarray containing the</span>
+<span class="sd">        initially found feature coordinates. image and reader are preprocessed.</span>
+<span class="sd">        Default None.</span>
+<span class="sd">    after_link : function, optional</span>
+<span class="sd">        This function is executed after the find and link of each frame. It</span>
+<span class="sd">        should not change the number of features.</span>
+<span class="sd">        It should take the following arguments (or **kwargs):</span>
+<span class="sd">            features, reader, image, diameter, separation, search_range, margin,</span>
+<span class="sd">            minmass.</span>
+<span class="sd">        And it should return features. features is a DataFrame containing the</span>
+<span class="sd">        feature coordinates and characterization.</span>
+<span class="sd">        image and reader are preprocessed. Default None.</span>
+<span class="sd">    refine : boolean, optional</span>
+<span class="sd">        Convenience parameter to do center-of-mass refinement. Cannot be used</span>
+<span class="sd">        combined with an after_link function. Default False.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">shape</span> <span class="o">=</span> <span class="n">reader</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span>
+    <span class="n">ndim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">smoothing_size</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">smoothing_size</span> <span class="o">=</span> <span class="n">separation</span>
+    <span class="n">smoothing_size</span> <span class="o">=</span> <span class="n">validate_tuple</span><span class="p">(</span><span class="n">smoothing_size</span><span class="p">,</span> <span class="n">ndim</span><span class="p">)</span>
+    <span class="n">separation</span> <span class="o">=</span> <span class="n">validate_tuple</span><span class="p">(</span><span class="n">separation</span><span class="p">,</span> <span class="n">ndim</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">diameter</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">diameter</span> <span class="o">=</span> <span class="n">separation</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">diameter</span> <span class="o">=</span> <span class="n">validate_tuple</span><span class="p">(</span><span class="n">diameter</span><span class="p">,</span> <span class="n">ndim</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">refine</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">after_link</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;Refine cannot be used together with after_link.&quot;</span><span class="p">)</span>
+        <span class="n">pos_columns</span> <span class="o">=</span> <span class="n">default_pos_columns</span><span class="p">(</span><span class="n">ndim</span><span class="p">)</span>
+        <span class="n">refine_columns</span> <span class="o">=</span> <span class="n">pos_columns</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="s">&#39;mass&#39;</span><span class="p">]</span>
+        <span class="n">radius</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">d</span> <span class="o">//</span> <span class="mi">2</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">diameter</span><span class="p">])</span>
+        <span class="k">def</span> <span class="nf">after_link</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">features</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+            <span class="n">coords</span> <span class="o">=</span> <span class="n">features</span><span class="p">[</span><span class="n">pos_columns</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">features</span>
+            <span class="c"># no separation filtering, because we use precise grey dilation</span>
+            <span class="n">coords</span> <span class="o">=</span> <span class="n">tp</span><span class="o">.</span><span class="n">refine</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">image</span><span class="p">,</span> <span class="n">radius</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">separation</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                               <span class="n">characterize</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+            <span class="n">features</span><span class="p">[</span><span class="n">refine_columns</span><span class="p">]</span> <span class="o">=</span> <span class="n">coords</span>
+            <span class="k">return</span> <span class="n">features</span>
+
+    <span class="n">features</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">reader_bp</span> <span class="o">=</span> <span class="n">preprocess</span><span class="p">(</span><span class="n">reader</span><span class="p">,</span> <span class="n">noise_size</span><span class="p">,</span> <span class="n">smoothing_size</span><span class="p">,</span> <span class="n">threshold</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">frame_no</span><span class="p">,</span> <span class="n">f_frame</span> <span class="ow">in</span> <span class="n">_find_link_iter</span><span class="p">(</span><span class="n">reader_bp</span><span class="p">,</span> <span class="n">search_range</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span>
+                                             <span class="n">diameter</span><span class="p">,</span> <span class="n">memory</span><span class="p">,</span> <span class="n">percentile</span><span class="p">,</span>
+                                             <span class="n">minmass</span><span class="p">,</span> <span class="n">before_link</span><span class="p">,</span> <span class="n">after_link</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">f_frame</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">n_traj</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">n_traj</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">f_frame</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Frame {0}: {1} trajectories present.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">frame_no</span><span class="p">,</span>
+                                                                  <span class="n">n_traj</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">n_traj</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">features</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">f_frame</span><span class="p">)</span>
+
+    <span class="n">features</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="n">ignore_index</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">features</span>
+
+</div>
+<span class="k">def</span> <span class="nf">_build_level</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">frame_no</span><span class="p">,</span> <span class="n">extra_data</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">extra_data</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">PointND</span><span class="p">(</span><span class="n">frame_no</span><span class="p">,</span> <span class="n">pos</span><span class="p">)</span> <span class="k">for</span> <span class="n">pos</span> <span class="ow">in</span> <span class="n">coords</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">PointND</span><span class="p">(</span><span class="n">frame_no</span><span class="p">,</span> <span class="n">pos</span><span class="p">,</span>
+                        <span class="n">extra_data</span><span class="o">=</span><span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">extra_data</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">i</span><span class="p">]</span>
+                                    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">extra_data</span><span class="p">})</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">pos</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">coords</span><span class="p">)]</span>
+
+
+<span class="k">def</span> <span class="nf">_get_pcoords</span><span class="p">(</span><span class="n">level</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">p</span><span class="o">.</span><span class="n">pos</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">level</span><span class="p">])</span>
+
+
+<span class="k">def</span> <span class="nf">recursive_linker_obj</span><span class="p">(</span><span class="n">s_sn</span><span class="p">,</span> <span class="n">dest_size</span><span class="p">,</span> <span class="n">max_size</span><span class="o">=</span><span class="mi">30</span><span class="p">):</span>
+    <span class="n">snl</span> <span class="o">=</span> <span class="n">SubnetLinker</span><span class="p">(</span><span class="n">s_sn</span><span class="p">,</span> <span class="n">dest_size</span><span class="p">,</span> <span class="n">max_size</span><span class="p">)</span>
+    <span class="c"># In Python 3, we must convert to lists to return mutable collections.</span>
+    <span class="k">return</span> <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">particles</span><span class="p">)</span> <span class="k">for</span> <span class="n">particles</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">snl</span><span class="o">.</span><span class="n">best_pairs</span><span class="p">)]</span>
+
+
+<span class="k">class</span> <span class="nc">SubnetLinker</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A helper class for implementing the Crocker-Grier tracking</span>
+<span class="sd">    algorithm.  This class handles the recursion code for the sub-net linking&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s_sn</span><span class="p">,</span> <span class="n">dest_size</span><span class="p">,</span> <span class="n">max_size</span><span class="o">=</span><span class="mi">30</span><span class="p">):</span>
+        <span class="c"># add in penalty for not linking</span>
+        <span class="k">for</span> <span class="n">_s</span> <span class="ow">in</span> <span class="n">s_sn</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">_s</span><span class="o">.</span><span class="n">forward_cands</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">_s</span><span class="o">.</span><span class="n">forward_cands</span> <span class="o">=</span> <span class="p">[(</span><span class="bp">None</span><span class="p">,</span> <span class="mf">1.</span><span class="p">)]</span>
+            <span class="k">elif</span> <span class="n">_s</span><span class="o">.</span><span class="n">forward_cands</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="n">_s</span><span class="o">.</span><span class="n">forward_cands</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="bp">None</span><span class="p">,</span> <span class="mf">1.</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">s_sn</span> <span class="o">=</span> <span class="n">s_sn</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">search_range</span> <span class="o">=</span> <span class="mf">1.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_size</span> <span class="o">=</span> <span class="n">max_size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">s_lst</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">s_sn</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">s_lst</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">forward_cands</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">MAX</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">s_lst</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_links</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">MAX</span><span class="p">,</span> <span class="n">dest_size</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">best_pairs</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cur_pairs</span> <span class="o">=</span> <span class="n">deque</span><span class="p">([])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">best_sum</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">Inf</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">d_taken</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cur_sum</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">MAX</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_size</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">SubnetOversizeException</span><span class="p">(</span><span class="s">&quot;Subnetwork contains </span><span class="si">%d</span><span class="s"> points&quot;</span>
+                                          <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">MAX</span><span class="p">)</span>
+        <span class="c"># do the computation</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">do_recur</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">do_recur</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">j</span><span class="p">):</span>
+        <span class="n">cur_s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">s_lst</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">cur_d</span><span class="p">,</span> <span class="n">dist</span> <span class="ow">in</span> <span class="n">cur_s</span><span class="o">.</span><span class="n">forward_cands</span><span class="p">:</span>
+            <span class="n">tmp_sum</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cur_sum</span> <span class="o">+</span> <span class="n">dist</span><span class="o">**</span><span class="mi">2</span>
+            <span class="k">if</span> <span class="n">tmp_sum</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_sum</span><span class="p">:</span>
+                <span class="c"># if we are already greater than the best sum, bail we</span>
+                <span class="c"># can bail all the way out of this branch because all</span>
+                <span class="c"># the other possible connections (including the null</span>
+                <span class="c"># connection) are more expensive than the current</span>
+                <span class="c"># connection, thus we can discard with out testing all</span>
+                <span class="c"># leaves down this branch</span>
+                <span class="k">return</span>
+            <span class="k">if</span> <span class="n">cur_d</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="ow">and</span> <span class="n">cur_d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">d_taken</span><span class="p">:</span>
+                <span class="c"># we have already used this destination point, bail</span>
+                <span class="k">continue</span>
+            <span class="c"># add this pair to the running list</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cur_pairs</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">cur_s</span><span class="p">,</span> <span class="n">cur_d</span><span class="p">))</span>
+            <span class="c"># add the destination point to the exclusion list</span>
+            <span class="k">if</span> <span class="n">cur_d</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">d_taken</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">cur_d</span><span class="p">)</span>
+            <span class="c"># update the current sum</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cur_sum</span> <span class="o">=</span> <span class="n">tmp_sum</span>
+            <span class="c"># buried base case</span>
+            <span class="c"># if we have hit the end of s_lst and made it this far, it</span>
+            <span class="c"># must be a better linking so save it.</span>
+            <span class="k">if</span> <span class="n">j</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">MAX</span><span class="p">:</span>
+                <span class="n">tmp_sum</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cur_sum</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_range</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">max_links</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">d_taken</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">tmp_sum</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_sum</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">best_sum</span> <span class="o">=</span> <span class="n">tmp_sum</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">best_pairs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cur_pairs</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c"># re curse!</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">do_recur</span><span class="p">(</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="c"># remove this step from the working</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cur_sum</span> <span class="o">-=</span> <span class="n">dist</span><span class="o">**</span><span class="mi">2</span>
+            <span class="k">if</span> <span class="n">cur_d</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">d_taken</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">cur_d</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cur_pairs</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="k">pass</span>
+
+
+<span class="k">class</span> <span class="nc">Linker</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;See link_iter() for a description of parameters.&quot;&quot;&quot;</span>
+    <span class="c"># Largest subnet we will attempt to solve.</span>
+    <span class="n">MAX_SUB_NET_SIZE</span> <span class="o">=</span> <span class="mi">30</span>
+    <span class="c"># For adaptive search, subnet linking should fail much faster.</span>
+    <span class="n">MAX_SUB_NET_SIZE_ADAPTIVE</span> <span class="o">=</span> <span class="mi">15</span>
+    <span class="c"># Maximum number of candidates per particle</span>
+    <span class="n">MAX_NEIGHBORS</span> <span class="o">=</span> <span class="mi">10</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">search_range</span><span class="p">,</span> <span class="n">memory</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">memory</span> <span class="o">=</span> <span class="n">memory</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">track_cls</span> <span class="o">=</span> <span class="n">TrackUnstored</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subnet_linker</span> <span class="o">=</span> <span class="n">recursive_linker_obj</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_subnet_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">MAX_SUB_NET_SIZE</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subnet_counter</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c"># Unique ID for each subnet</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ndim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">search_range</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">search_range</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">search_range</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hash</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mem_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">update_hash</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">extra_data</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="n">prev_hash</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hash</span>
+        <span class="c"># add memory points to prev_hash (to be used as the next source)</span>
+        <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mem_set</span><span class="p">:</span>
+            <span class="c"># add points to the hash</span>
+            <span class="n">prev_hash</span><span class="o">.</span><span class="n">add_point</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+            <span class="c"># Record how many times this particle got &quot;held back&quot;.</span>
+            <span class="c"># Since this particle has already been yielded in a previous</span>
+            <span class="c"># level, we can&#39;t store it there. We&#39;ll have to put it in the</span>
+            <span class="c"># track object, then copy this info to the point in cur_hash</span>
+            <span class="c"># if/when we make a link.</span>
+            <span class="n">m</span><span class="o">.</span><span class="n">track</span><span class="o">.</span><span class="n">incr_memory</span><span class="p">()</span>
+            <span class="c"># re-create the forward_cands list</span>
+            <span class="n">m</span><span class="o">.</span><span class="n">forward_cands</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">hash</span> <span class="o">=</span> <span class="n">TreeFinder</span><span class="p">(</span><span class="n">_build_level</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">extra_data</span><span class="p">),</span>
+                               <span class="bp">self</span><span class="o">.</span><span class="n">search_range</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">prev_hash</span>
+
+    <span class="k">def</span> <span class="nf">init_level</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">extra_data</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="n">PointND</span><span class="o">.</span><span class="n">set_counter</span><span class="p">()</span>
+        <span class="n">TrackUnstored</span><span class="o">.</span><span class="n">set_counter</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mem_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="c"># Initialize memory with empty sets.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mem_history</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mem_history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">set</span><span class="p">())</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">update_hash</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">extra_data</span><span class="p">)</span>
+        <span class="c"># Assume everything in first level starts a Track.</span>
+        <span class="c"># Iterate over prev_level, not prev_set, because order -&gt; track ID.</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">hash</span><span class="o">.</span><span class="n">points</span><span class="p">:</span>
+            <span class="n">TrackUnstored</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">particle_ids</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">track</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">hash</span><span class="o">.</span><span class="n">points</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">coords</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">hash</span><span class="o">.</span><span class="n">coords</span>
+    <span class="nd">@coords.setter</span>
+    <span class="k">def</span> <span class="nf">coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hash</span><span class="o">.</span><span class="n">points</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;Number of coordinates has changed&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">coord</span><span class="p">,</span> <span class="n">pnt</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hash</span><span class="o">.</span><span class="n">points</span><span class="p">):</span>
+            <span class="n">pnt</span><span class="o">.</span><span class="n">pos</span> <span class="o">=</span> <span class="n">coord</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hash</span><span class="o">.</span><span class="n">_clean</span> <span class="o">=</span> <span class="bp">False</span>
+
+    <span class="k">def</span> <span class="nf">to_dataframe</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">hash</span><span class="o">.</span><span class="n">to_dataframe</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">set_dataframe</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hash</span><span class="o">.</span><span class="n">points</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;Number of features has changed&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">coords</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="n">default_pos_columns</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ndim</span><span class="p">)]</span><span class="o">.</span><span class="n">values</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">points</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">hash</span><span class="o">.</span><span class="n">points</span>
+
+    <span class="k">def</span> <span class="nf">next_level</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">extra_data</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="n">prev_hash</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">update_hash</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">extra_data</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">subnets</span> <span class="o">=</span> <span class="n">Subnets</span><span class="p">(</span><span class="n">prev_hash</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hash</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">MAX_NEIGHBORS</span><span class="p">)</span>
+        <span class="n">spl</span><span class="p">,</span> <span class="n">dpl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">assign_links</span><span class="p">(</span><span class="n">prev_hash</span><span class="o">.</span><span class="n">points</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hash</span><span class="o">.</span><span class="n">points</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">apply_links</span><span class="p">(</span><span class="n">spl</span><span class="p">,</span> <span class="n">dpl</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">assign_links</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prev_points</span><span class="p">,</span> <span class="n">cur_points</span><span class="p">):</span>
+        <span class="n">spl</span><span class="p">,</span> <span class="n">dpl</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">source_set</span><span class="p">,</span> <span class="n">dest_set</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">subnets</span><span class="p">:</span>
+            <span class="c"># no backwards candidates</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">source_set</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">dest_set</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="c"># particle will get a new track</span>
+                <span class="n">dpl</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dest_set</span><span class="o">.</span><span class="n">pop</span><span class="p">())</span>
+                <span class="n">spl</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span>
+                <span class="k">continue</span>  <span class="c"># do next dest_set particle</span>
+            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">source_set</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">dest_set</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="c"># one backwards candidate and one forward candidate</span>
+                <span class="n">dpl</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dest_set</span><span class="o">.</span><span class="n">pop</span><span class="p">())</span>
+                <span class="n">spl</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">source_set</span><span class="o">.</span><span class="n">pop</span><span class="p">())</span>
+                <span class="k">continue</span>  <span class="c"># do next dest_set particle</span>
+
+            <span class="n">sn_spl</span><span class="p">,</span> <span class="n">sn_dpl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subnet_linker</span><span class="p">(</span><span class="n">source_set</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">dest_set</span><span class="p">))</span>
+
+            <span class="k">for</span> <span class="n">dp</span> <span class="ow">in</span> <span class="n">dest_set</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">sn_dpl</span><span class="p">):</span>
+                <span class="c"># Unclaimed destination particle in subnet</span>
+                <span class="n">sn_spl</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span>
+                <span class="n">sn_dpl</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dp</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">subnet_counter</span> <span class="o">+=</span> <span class="mi">1</span>
+
+            <span class="n">spl</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">sn_spl</span><span class="p">)</span>
+            <span class="n">dpl</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">sn_dpl</span><span class="p">)</span>
+
+        <span class="c"># Leftovers</span>
+        <span class="n">lost</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subnets</span><span class="o">.</span><span class="n">lost</span><span class="p">()</span>
+        <span class="n">spl</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">lost</span><span class="p">)</span>
+        <span class="n">dpl</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="bp">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">lost</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">spl</span><span class="p">,</span> <span class="n">dpl</span>
+
+    <span class="k">def</span> <span class="nf">apply_links</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">spl</span><span class="p">,</span> <span class="n">dpl</span><span class="p">):</span>
+        <span class="n">new_mem_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">sp</span><span class="p">,</span> <span class="n">dp</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">spl</span><span class="p">,</span> <span class="n">dpl</span><span class="p">),</span> <span class="n">key</span><span class="o">=</span><span class="n">_sort_key_spl_dpl</span><span class="p">):</span>
+            <span class="c"># Do linking</span>
+            <span class="k">if</span> <span class="n">sp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="ow">and</span> <span class="n">dp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="n">sp</span><span class="o">.</span><span class="n">track</span><span class="o">.</span><span class="n">add_point</span><span class="p">(</span><span class="n">dp</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">sp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mem_set</span><span class="p">:</span>  <span class="c"># Very rare</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">mem_set</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">sp</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="c"># if unclaimed destination particle, a track is born!</span>
+                <span class="n">TrackUnstored</span><span class="p">(</span><span class="n">dp</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">dp</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="c"># add the unmatched source particles to the new</span>
+                <span class="c"># memory set</span>
+                <span class="n">new_mem_set</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+
+            <span class="c"># Clean up</span>
+            <span class="k">if</span> <span class="n">dp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="k">del</span> <span class="n">dp</span><span class="o">.</span><span class="n">back_cands</span>
+            <span class="k">if</span> <span class="n">sp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="k">del</span> <span class="n">sp</span><span class="o">.</span><span class="n">forward_cands</span>
+
+        <span class="c"># add in the memory points</span>
+        <span class="c"># store the current level for use in next loop</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c"># identify the new memory points</span>
+            <span class="n">new_mem_set</span> <span class="o">-=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mem_set</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mem_history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_mem_set</span><span class="p">)</span>
+            <span class="c"># remove points that are now too old</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mem_set</span> <span class="o">-=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mem_history</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+            <span class="c"># add the new points</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mem_set</span> <span class="o">|=</span> <span class="n">new_mem_set</span>
+
+
+<span class="k">class</span> <span class="nc">FindLinker</span><span class="p">(</span><span class="n">Linker</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    diameter : integer or tuple</span>
+<span class="sd">        Size used in grey dilation: relocates maxima that are local within</span>
+<span class="sd">        diameter / 2. Relocate is done on masked images.</span>
+<span class="sd">    separation : float or tuple</span>
+<span class="sd">        The minimum distance between features, used in relocate, in pixels</span>
+<span class="sd">        will locate no features closer than ``separation`` to other features</span>
+<span class="sd">    search_range : float or tuple</span>
+<span class="sd">        The maximum distance features can move between frames, in pixels</span>
+<span class="sd">        will locate no features further than ``search_range`` from initial pos</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c"># Largest subnet we will attempt to solve.</span>
+    <span class="n">MAX_SUB_NET_SIZE</span> <span class="o">=</span> <span class="mi">30</span>
+    <span class="c"># For adaptive search, subnet linking should fail much faster.</span>
+    <span class="n">MAX_SUB_NET_SIZE_ADAPTIVE</span> <span class="o">=</span> <span class="mi">15</span>
+    <span class="c"># Largest number of relocated particles to consider (per subnet)</span>
+    <span class="n">MAX_RELOCATE_COORDS</span> <span class="o">=</span> <span class="mi">10</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">diameter</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span> <span class="n">search_range</span><span class="p">,</span> <span class="n">memory</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                 <span class="n">minmass</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">percentile</span><span class="o">=</span><span class="mi">64</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">FindLinker</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">search_range</span><span class="p">,</span> <span class="n">memory</span><span class="o">=</span><span class="n">memory</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ndim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">diameter</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">isotropic</span> <span class="o">=</span> <span class="n">is_isotropic</span><span class="p">(</span><span class="n">diameter</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">radius</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="n">d</span> <span class="o">//</span> <span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">diameter</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">separation</span> <span class="o">=</span> <span class="n">separation</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">minmass</span> <span class="o">=</span> <span class="n">minmass</span>  <span class="c"># in masked image</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">percentile</span> <span class="o">=</span> <span class="n">percentile</span>
+
+        <span class="c"># For grey dilation: find the largest box that fits inside the ellipse</span>
+        <span class="c"># given by separation</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dilation_size</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">s</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ndim</span><span class="p">))</span>
+                                   <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">separation</span><span class="p">])</span>
+        <span class="c"># slice_radius: radius for relocate mask</span>
+        <span class="c"># search_range + feature radius + 1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">slice_radius</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="n">s</span> <span class="o">+</span> <span class="n">r</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+                                   <span class="k">for</span> <span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">search_range</span><span class="p">,</span>
+                                                     <span class="bp">self</span><span class="o">.</span><span class="n">radius</span><span class="p">)])</span>
+        <span class="c"># background_radius: radius to make sure the already located features</span>
+        <span class="c"># do not fall inside slice radius</span>
+        <span class="n">bg_radius</span> <span class="o">=</span> <span class="p">[</span><span class="n">sl</span> <span class="o">+</span> <span class="n">r</span> <span class="o">+</span> <span class="mi">1</span> <span class="k">for</span> <span class="p">(</span><span class="n">sl</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">slice_radius</span><span class="p">,</span>
+                                                   <span class="bp">self</span><span class="o">.</span><span class="n">radius</span><span class="p">)]</span>
+        <span class="c"># The big feature hashtable is normed to search_range. For performance,</span>
+        <span class="c"># we do not rebuild this large hashtable. apply the norm here and take</span>
+        <span class="c"># the largest value.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_dist_in_slice</span> <span class="o">=</span> <span class="nb">max</span><span class="p">([</span><span class="n">a</span> <span class="o">/</span> <span class="n">b</span> <span class="k">for</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">bg_radius</span><span class="p">,</span>
+                                                              <span class="bp">self</span><span class="o">.</span><span class="n">search_range</span><span class="p">)])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">double_search_range</span> <span class="o">=</span> <span class="p">[</span><span class="mi">2</span> <span class="o">*</span> <span class="n">sr</span> <span class="k">for</span> <span class="n">sr</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_range</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">threshold</span> <span class="o">=</span> <span class="p">(</span><span class="bp">None</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">relocate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source_points</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+        <span class="n">candidates</span><span class="p">,</span> <span class="n">extra_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_relocate_candidates</span><span class="p">(</span><span class="n">source_points</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">candidates</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">candidates</span><span class="p">))</span>
+            <span class="n">points</span> <span class="o">=</span> <span class="n">_build_level</span><span class="p">(</span><span class="n">candidates</span><span class="p">[:</span><span class="n">n</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="o">.</span><span class="n">frame_no</span><span class="p">,</span>
+                                  <span class="n">extra_data</span><span class="o">=</span><span class="n">extra_data</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">set</span><span class="p">(</span><span class="n">points</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">percentile_threshold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">percentile</span><span class="p">):</span>
+        <span class="n">frame_no</span><span class="p">,</span> <span class="n">threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">threshold</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="o">.</span><span class="n">frame_no</span> <span class="o">!=</span> <span class="n">frame_no</span><span class="p">:</span>
+            <span class="n">not_black</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="p">)]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">not_black</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">threshold</span> <span class="o">=</span> <span class="bp">None</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">threshold</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">not_black</span><span class="p">,</span> <span class="n">percentile</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">threshold</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="o">.</span><span class="n">frame_no</span><span class="p">,</span> <span class="n">threshold</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">threshold</span>
+
+    <span class="k">def</span> <span class="nf">get_relocate_candidates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source_points</span><span class="p">):</span>
+        <span class="n">pos</span> <span class="o">=</span> <span class="n">_get_pcoords</span><span class="p">(</span><span class="n">source_points</span><span class="p">)</span>
+
+        <span class="c"># slice region around cluster</span>
+        <span class="n">im_unmasked</span><span class="p">,</span> <span class="n">origin</span> <span class="o">=</span> <span class="n">slice_image</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slice_radius</span><span class="p">)</span>
+
+        <span class="c"># return when there is no intensity left</span>
+        <span class="k">if</span> <span class="n">im_unmasked</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">None</span><span class="p">,</span> <span class="bp">None</span>
+        <span class="c"># mask image so that only regions up to slice_radius are visible</span>
+        <span class="n">im_masked</span> <span class="o">=</span> <span class="n">mask_image</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">im_unmasked</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slice_radius</span><span class="p">,</span> <span class="n">origin</span><span class="p">,</span>
+                               <span class="n">invert</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+        <span class="c"># return when there is no intensity left</span>
+        <span class="k">if</span> <span class="n">im_masked</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">None</span><span class="p">,</span> <span class="bp">None</span>
+
+        <span class="c"># mask coords that were already found (&#39;background&#39;)</span>
+        <span class="n">background</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hash</span><span class="o">.</span><span class="n">query_points</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_dist_in_slice</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">background</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">im_masked</span> <span class="o">=</span> <span class="n">mask_image</span><span class="p">(</span><span class="n">background</span><span class="p">,</span> <span class="n">im_masked</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">separation</span><span class="p">,</span>
+                                   <span class="n">origin</span><span class="p">,</span> <span class="n">invert</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+        <span class="n">threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">percentile_threshold</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">percentile</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">threshold</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>  <span class="c"># completely black image</span>
+            <span class="k">return</span> <span class="bp">None</span><span class="p">,</span> <span class="bp">None</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">im_masked</span> <span class="o">&lt;</span> <span class="n">threshold</span><span class="p">):</span>  <span class="c"># image entirely below threshold</span>
+            <span class="k">return</span> <span class="bp">None</span><span class="p">,</span> <span class="bp">None</span>
+        <span class="c"># The intersection of the image with its dilation gives local maxima.</span>
+        <span class="n">dilation</span> <span class="o">=</span> <span class="n">ndimage</span><span class="o">.</span><span class="n">grey_dilation</span><span class="p">(</span><span class="n">im_masked</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dilation_size</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s">&#39;constant&#39;</span><span class="p">)</span>
+        <span class="n">maxima</span> <span class="o">=</span> <span class="p">(</span><span class="n">im_masked</span> <span class="o">==</span> <span class="n">dilation</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">im_masked</span> <span class="o">&gt;</span> <span class="n">threshold</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">maxima</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>   <span class="c"># no maxima</span>
+            <span class="k">return</span> <span class="bp">None</span><span class="p">,</span> <span class="bp">None</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">maxima</span><span class="p">))</span><span class="o">.</span><span class="n">T</span>
+
+        <span class="c"># drop points that are further than search range from any initial point</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="n">query_point</span><span class="p">(</span><span class="n">pos</span> <span class="o">-</span> <span class="n">origin</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_range</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">coords</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">None</span><span class="p">,</span> <span class="bp">None</span>
+
+        <span class="c"># drop dimmer points that are closer than separation to each other</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="n">drop_close</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">separation</span><span class="p">,</span>
+                            <span class="p">[</span><span class="n">im_masked</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">c</span><span class="p">)]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">coords</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">coords</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">None</span><span class="p">,</span> <span class="bp">None</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">scale_factor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s">&#39;scale_factor&#39;</span><span class="p">]</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">AttributeError</span><span class="p">,</span> <span class="ne">KeyError</span><span class="p">):</span>
+            <span class="n">scale_factor</span> <span class="o">=</span> <span class="mf">1.</span>
+        <span class="n">extra_data</span> <span class="o">=</span> <span class="n">characterize</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">im_masked</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius</span><span class="p">,</span>
+                                  <span class="bp">self</span><span class="o">.</span><span class="n">isotropic</span><span class="p">,</span> <span class="n">scale_factor</span><span class="p">)</span>
+
+        <span class="n">mass</span> <span class="o">=</span> <span class="n">extra_data</span><span class="p">[</span><span class="s">&#39;mass&#39;</span><span class="p">]</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">mass</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">][:</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">mass</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">minmass</span><span class="p">)]</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">extra_data</span><span class="p">:</span>
+            <span class="n">extra_data</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">extra_data</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">mask</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">coords</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">+</span> <span class="n">origin</span><span class="p">,</span> <span class="n">extra_data</span>
+
+    <span class="k">def</span> <span class="nf">assign_links</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prev_points</span><span class="p">,</span> <span class="n">cur_points</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subnets</span><span class="o">.</span><span class="n">merge_lost_subnets</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subnets</span><span class="o">.</span><span class="n">sort_candidates</span><span class="p">()</span>
+        <span class="n">spl</span><span class="p">,</span> <span class="n">dpl</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">source_set</span><span class="p">,</span> <span class="n">dest_set</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">subnets</span><span class="p">:</span>
+            <span class="n">shortage</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">source_set</span><span class="p">)</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">dest_set</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">shortage</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">new_cands</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">relocate</span><span class="p">(</span><span class="n">source_set</span><span class="p">,</span> <span class="n">shortage</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">subnets</span><span class="o">.</span><span class="n">add_dest_points</span><span class="p">(</span><span class="n">source_set</span><span class="p">,</span> <span class="n">new_cands</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">new_cands</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">source_set</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">dest_set</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="c"># no backwards candidates: particle will get a new track</span>
+                <span class="n">dpl</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dest_set</span><span class="o">.</span><span class="n">pop</span><span class="p">())</span>
+                <span class="n">spl</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">source_set</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">dest_set</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c"># no forward candidates</span>
+                <span class="n">spl</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">source_set</span><span class="o">.</span><span class="n">pop</span><span class="p">())</span>
+                <span class="n">dpl</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">source_set</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">dest_set</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="c"># one backwards candidate and one forward candidate</span>
+                <span class="n">dpl</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dest_set</span><span class="o">.</span><span class="n">pop</span><span class="p">())</span>
+                <span class="n">spl</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">source_set</span><span class="o">.</span><span class="n">pop</span><span class="p">())</span>
+                <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">new_cands</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">hash</span><span class="o">.</span><span class="n">add_point</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">sn_spl</span><span class="p">,</span> <span class="n">sn_dpl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subnet_linker</span><span class="p">(</span><span class="n">source_set</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">dest_set</span><span class="p">))</span>
+                <span class="n">sn_dpl_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">sn_dpl</span><span class="p">)</span>
+                <span class="c"># claimed new destination particles</span>
+                <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">new_cands</span> <span class="o">&amp;</span> <span class="n">sn_dpl_set</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">hash</span><span class="o">.</span><span class="n">add_point</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+                <span class="c"># unclaimed old destination particles</span>
+                <span class="n">unclaimed</span> <span class="o">=</span> <span class="p">(</span><span class="n">dest_set</span> <span class="o">-</span> <span class="n">sn_dpl_set</span><span class="p">)</span> <span class="o">-</span> <span class="n">new_cands</span>
+                <span class="n">sn_spl</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="bp">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">unclaimed</span><span class="p">))</span>
+                <span class="n">sn_dpl</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">unclaimed</span><span class="p">)</span>
+
+                <span class="bp">self</span><span class="o">.</span><span class="n">subnet_counter</span> <span class="o">+=</span> <span class="mi">1</span>
+
+                <span class="n">spl</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">sn_spl</span><span class="p">)</span>
+                <span class="n">dpl</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">sn_dpl</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">spl</span><span class="p">,</span> <span class="n">dpl</span>
+
+
+<span class="k">def</span> <span class="nf">_find_link_iter</span><span class="p">(</span><span class="n">reader</span><span class="p">,</span> <span class="n">search_range</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span> <span class="n">diameter</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">memory</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                    <span class="n">percentile</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">minmass</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">before_link</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                    <span class="n">after_link</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+
+    <span class="n">shape</span> <span class="o">=</span> <span class="n">reader</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span>
+    <span class="n">ndim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span>
+
+    <span class="n">search_range</span> <span class="o">=</span> <span class="n">validate_tuple</span><span class="p">(</span><span class="n">search_range</span><span class="p">,</span> <span class="n">ndim</span><span class="p">)</span>
+    <span class="n">separation</span> <span class="o">=</span> <span class="n">validate_tuple</span><span class="p">(</span><span class="n">separation</span><span class="p">,</span> <span class="n">ndim</span><span class="p">)</span>
+    <span class="n">isotropic</span> <span class="o">=</span> <span class="n">is_isotropic</span><span class="p">(</span><span class="n">diameter</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">diameter</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">diameter</span> <span class="o">=</span> <span class="n">separation</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">diameter</span> <span class="o">=</span> <span class="n">validate_tuple</span><span class="p">(</span><span class="n">diameter</span><span class="p">,</span> <span class="n">ndim</span><span class="p">)</span>
+    <span class="n">radius</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="n">d</span> <span class="o">//</span> <span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">diameter</span><span class="p">])</span>
+    <span class="c"># Define zone of exclusion at edges of image, avoiding</span>
+    <span class="c">#   - Features with incomplete image data (&quot;radius&quot;)</span>
+    <span class="c">#   - Extended particles that cannot be explored during subpixel</span>
+    <span class="c">#       refinement (&quot;separation&quot;)</span>
+    <span class="c">#   - Invalid output of the bandpass step (&quot;smoothing_size&quot;)</span>
+    <span class="n">margin</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="nb">max</span><span class="p">(</span><span class="n">diam</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="n">sep</span> <span class="o">//</span> <span class="mi">2</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="p">(</span><span class="n">diam</span><span class="p">,</span> <span class="n">sep</span><span class="p">)</span> <span class="ow">in</span>
+                    <span class="nb">zip</span><span class="p">(</span><span class="n">diameter</span><span class="p">,</span> <span class="n">separation</span><span class="p">)])</span>
+
+    <span class="c"># Check whether the margins are not covering the complete image</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">([</span><span class="n">s</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="o">*</span><span class="n">m</span> <span class="k">for</span> <span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">m</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">margin</span><span class="p">)]):</span>
+        <span class="c"># Check whether the image looks suspiciously like a multichannel image.</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">([</span><span class="n">s</span> <span class="o">&lt;=</span> <span class="mi">4</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">shape</span><span class="p">])</span> <span class="ow">and</span> <span class="p">(</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&#39;One of the image dimensions is very small. &#39;</span>
+                             <span class="s">&#39;Please make sure that you are not using an RGB &#39;</span>
+                             <span class="s">&#39;or other multichannel (color) image.&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&#39;The feature finding margins are larger than the &#39;</span>
+                             <span class="s">&#39;image shape. Please use smaller radius, &#39;</span>
+                             <span class="s">&#39;separation or smoothing_size.&#39;</span><span class="p">)</span>
+
+    <span class="n">linker</span> <span class="o">=</span> <span class="n">FindLinker</span><span class="p">(</span><span class="n">diameter</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span> <span class="n">search_range</span><span class="p">,</span> <span class="n">memory</span><span class="p">,</span> <span class="n">minmass</span><span class="p">,</span>
+                        <span class="n">percentile</span><span class="p">)</span>
+
+    <span class="n">reader_iter</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">reader</span><span class="p">)</span>
+    <span class="n">image</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">reader_iter</span><span class="p">)</span>
+
+    <span class="n">coords</span> <span class="o">=</span> <span class="n">grey_dilation</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span> <span class="n">percentile</span><span class="p">,</span> <span class="n">margin</span><span class="p">,</span> <span class="n">precise</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">before_link</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="n">before_link</span><span class="p">(</span><span class="n">coords</span><span class="o">=</span><span class="n">coords</span><span class="p">,</span> <span class="n">reader</span><span class="o">=</span><span class="n">reader</span><span class="p">,</span> <span class="n">image</span><span class="o">=</span><span class="n">image</span><span class="p">,</span>
+                             <span class="n">diameter</span><span class="o">=</span><span class="n">diameter</span><span class="p">,</span> <span class="n">separation</span><span class="o">=</span><span class="n">separation</span><span class="p">,</span>
+                             <span class="n">search_range</span><span class="o">=</span><span class="n">search_range</span><span class="p">,</span>
+                             <span class="n">margin</span><span class="o">=</span><span class="n">margin</span><span class="p">,</span> <span class="n">minmass</span><span class="o">=</span><span class="n">minmass</span><span class="p">)</span>
+    <span class="n">extra_data</span> <span class="o">=</span> <span class="n">characterize</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">image</span><span class="p">,</span> <span class="n">radius</span><span class="p">,</span> <span class="n">isotropic</span><span class="p">)</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="n">extra_data</span><span class="p">[</span><span class="s">&#39;mass&#39;</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">minmass</span>
+    <span class="n">coords</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">extra_data</span><span class="p">:</span>
+        <span class="n">extra_data</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">extra_data</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">mask</span><span class="p">]</span>
+    <span class="n">linker</span><span class="o">.</span><span class="n">init_level</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">image</span><span class="o">.</span><span class="n">frame_no</span><span class="p">,</span> <span class="n">extra_data</span><span class="p">)</span>
+    <span class="n">features</span> <span class="o">=</span> <span class="n">linker</span><span class="o">.</span><span class="n">to_dataframe</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">after_link</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="ow">and</span> <span class="n">features</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">features</span> <span class="o">=</span> <span class="n">after_link</span><span class="p">(</span><span class="n">features</span><span class="o">=</span><span class="n">features</span><span class="p">,</span> <span class="n">reader</span><span class="o">=</span><span class="n">reader</span><span class="p">,</span> <span class="n">image</span><span class="o">=</span><span class="n">image</span><span class="p">,</span>
+                              <span class="n">diameter</span><span class="o">=</span><span class="n">diameter</span><span class="p">,</span> <span class="n">separation</span><span class="o">=</span><span class="n">separation</span><span class="p">,</span>
+                              <span class="n">search_range</span><span class="o">=</span><span class="n">search_range</span><span class="p">,</span> <span class="n">margin</span><span class="o">=</span><span class="n">margin</span><span class="p">,</span>
+                              <span class="n">minmass</span><span class="o">=</span><span class="n">minmass</span><span class="p">)</span>
+        <span class="n">linker</span><span class="o">.</span><span class="n">set_dataframe</span><span class="p">(</span><span class="n">features</span><span class="p">)</span>  <span class="c"># for next iteration</span>
+
+    <span class="k">yield</span> <span class="n">image</span><span class="o">.</span><span class="n">frame_no</span><span class="p">,</span> <span class="n">features</span>
+
+    <span class="k">for</span> <span class="n">image</span> <span class="ow">in</span> <span class="n">reader_iter</span><span class="p">:</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="n">grey_dilation</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span> <span class="n">percentile</span><span class="p">,</span> <span class="n">margin</span><span class="p">,</span> <span class="n">precise</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">before_link</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">coords</span> <span class="o">=</span> <span class="n">before_link</span><span class="p">(</span><span class="n">coords</span><span class="o">=</span><span class="n">coords</span><span class="p">,</span> <span class="n">reader</span><span class="o">=</span><span class="n">reader</span><span class="p">,</span> <span class="n">image</span><span class="o">=</span><span class="n">image</span><span class="p">,</span>
+                                 <span class="n">diameter</span><span class="o">=</span><span class="n">diameter</span><span class="p">,</span> <span class="n">separation</span><span class="o">=</span><span class="n">separation</span><span class="p">,</span>
+                                 <span class="n">search_range</span><span class="o">=</span><span class="n">search_range</span><span class="p">,</span>
+                                 <span class="n">margin</span><span class="o">=</span><span class="n">margin</span><span class="p">,</span> <span class="n">minmass</span><span class="o">=</span><span class="n">minmass</span><span class="p">)</span>
+        <span class="n">extra_data</span> <span class="o">=</span> <span class="n">characterize</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">image</span><span class="p">,</span> <span class="n">radius</span><span class="p">,</span> <span class="n">isotropic</span><span class="p">)</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">extra_data</span><span class="p">[</span><span class="s">&#39;mass&#39;</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">minmass</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">extra_data</span><span class="p">:</span>
+            <span class="n">extra_data</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">extra_data</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">mask</span><span class="p">]</span>
+        <span class="n">linker</span><span class="o">.</span><span class="n">image</span> <span class="o">=</span> <span class="n">image</span>
+        <span class="n">linker</span><span class="o">.</span><span class="n">next_level</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">image</span><span class="o">.</span><span class="n">frame_no</span><span class="p">,</span> <span class="n">extra_data</span><span class="p">)</span>
+        <span class="n">features</span> <span class="o">=</span> <span class="n">linker</span><span class="o">.</span><span class="n">to_dataframe</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">after_link</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="ow">and</span> <span class="n">features</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">features</span> <span class="o">=</span> <span class="n">after_link</span><span class="p">(</span><span class="n">features</span><span class="o">=</span><span class="n">features</span><span class="p">,</span> <span class="n">reader</span><span class="o">=</span><span class="n">reader</span><span class="p">,</span> <span class="n">image</span><span class="o">=</span><span class="n">image</span><span class="p">,</span>
+                                  <span class="n">diameter</span><span class="o">=</span><span class="n">diameter</span><span class="p">,</span> <span class="n">separation</span><span class="o">=</span><span class="n">separation</span><span class="p">,</span>
+                                  <span class="n">search_range</span><span class="o">=</span><span class="n">search_range</span><span class="p">,</span> <span class="n">margin</span><span class="o">=</span><span class="n">margin</span><span class="p">,</span>
+                                  <span class="n">minmass</span><span class="o">=</span><span class="n">minmass</span><span class="p">)</span>
+            <span class="n">linker</span><span class="o">.</span><span class="n">set_dataframe</span><span class="p">(</span><span class="n">features</span><span class="p">)</span>  <span class="c"># for next iteration</span>
+        <span class="k">yield</span> <span class="n">image</span><span class="o">.</span><span class="n">frame_no</span><span class="p">,</span> <span class="n">features</span>
+</pre></div>
+
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2016, Casper van der Wel.
+    </p>
+  </div>
+
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+  
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'1.0',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

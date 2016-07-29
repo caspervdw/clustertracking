@@ -1,0 +1,6 @@
+clustertracking.motion.diffusion_tensor_ci
+==========================================
+
+.. currentmodule:: clustertracking.motion
+
+.. autofunction:: diffusion_tensor_ci

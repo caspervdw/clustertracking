@@ -1,0 +1,6 @@
+clustertracking.constraints.dimer_global
+========================================
+
+.. currentmodule:: clustertracking.constraints
+
+.. autofunction:: dimer_global

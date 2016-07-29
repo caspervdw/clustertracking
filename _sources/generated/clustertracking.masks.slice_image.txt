@@ -1,0 +1,6 @@
+clustertracking.masks.slice_image
+=================================
+
+.. currentmodule:: clustertracking.masks
+
+.. autofunction:: slice_image
