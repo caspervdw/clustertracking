@@ -39,13 +39,14 @@ class RefineTsts(object):
     pos_atol_perfect = 0.05
     pos_atol_imperfect = 0.05
     pos_atol_noisy = 0.2
-    dimer_bias_atol = 0.2
+    dimer_bias_atol = 0.1
+    dimer_bias_atol_noisy = 0.2
     constrained_atol = 0.01
     signal_rtol_perfect = 0.01
     signal_rtol_imperfect = 0.5  # accounting for 10% of noise
     size_rtol_perfect = 0.01
     size_rtol_imperfect = 0.5   # accounting for 10% of noise
-    bounds = dict(signal=(20, 2000), size=(1, 10) )
+    bounds = dict(signal=(20, 2000), size=(1, 10))
 
     @classmethod
     def setUpClass(cls):
@@ -646,7 +647,6 @@ class RefineTsts(object):
 
     def test_dimer_perfect(self):
         # dimer is defined as such: np.array([[0, -1], [0, 1]]
-        self.feat_kwargs['mask_diameter'] = 21
         devs = self.refine_cluster(2, hard_radius=1., signal_dev=0, size_dev=0,
                                    noise=0)
         self.assertLess(devs['parr_mean'], self.dimer_bias_atol)
@@ -655,7 +655,6 @@ class RefineTsts(object):
 
     def test_var_single(self):
         # dimer is defined as such: np.array([[0, -1], [0, 1]]
-        self.feat_kwargs['mask_diameter'] = 21
         devs = self.refine_cluster(2, hard_radius=1., signal_dev=0, size_dev=0,
                                    noise=0, param_mode=dict(signal='cluster'))
         self.assertLess(devs['parr_mean'], self.dimer_bias_atol)
@@ -676,7 +675,7 @@ class RefineTsts(object):
         devs = self.refine_cluster(2, hard_radius=1., noise=NOISE_NOISY,
                                    signal_dev=self.signal_dev,
                                    size_dev=self.size_dev)
-        self.assertLess(devs['parr_mean'], self.dimer_bias_atol)
+        self.assertLess(devs['parr_mean'], self.dimer_bias_atol_noisy)
         self.assertLess(devs['perp_rms'], self.pos_atol_noisy)
 
     def test_dimer_constrained(self):
@@ -748,6 +747,7 @@ class TestFit_disc2D(RefineTsts, unittest.TestCase):
     feat_kwargs = dict(disc_size=DISC_SIZE)
     fit_func = 'gauss'
     pos_atol_perfect = 0.1
+    dimer_bias_atol = 0.2
     signal_rtol_perfect = 1
     signal_rtol_imperfect = 1
     size_rtol_perfect = 1
@@ -761,6 +761,7 @@ class TestFit_disc2D_a(RefineTsts, unittest.TestCase):
     feat_kwargs = dict(disc_size=DISC_SIZE)
     fit_func = 'gauss'
     pos_atol_perfect = 0.1
+    dimer_bias_atol = 0.2
     signal_rtol_perfect = 1
     signal_rtol_imperfect = 1
     size_rtol_perfect = 1
@@ -774,6 +775,7 @@ class TestFit_disc3D(RefineTsts, unittest.TestCase):
     feat_kwargs = dict(disc_size=DISC_SIZE)
     fit_func = 'gauss'
     pos_atol_perfect = 0.1
+    dimer_bias_atol = 0.2
     signal_rtol_perfect = 1
     signal_rtol_imperfect = 1
     size_rtol_perfect = 1
@@ -787,6 +789,7 @@ class TestFit_disc3D_a(RefineTsts, unittest.TestCase):
     feat_kwargs = dict(disc_size=DISC_SIZE)
     fit_func = 'gauss'
     pos_atol_perfect = 0.1
+    dimer_bias_atol = 0.2
     signal_rtol_perfect = 1
     signal_rtol_imperfect = 1
     size_rtol_perfect = 1
@@ -800,6 +803,7 @@ class TestFit_ring2D_gauss(RefineTsts, unittest.TestCase):
     feat_kwargs = dict(thickness=RING_THICKNESS)
     fit_func = 'gauss'
     pos_atol_perfect = 0.1
+    dimer_bias_atol = 0.2
     signal_rtol_perfect = 1
     signal_rtol_imperfect = 1
     size_rtol_perfect = 1
@@ -813,6 +817,7 @@ class TestFit_ring3D_gauss(RefineTsts, unittest.TestCase):
     feat_kwargs = dict(thickness=RING_THICKNESS)
     fit_func = 'gauss'
     pos_atol_perfect = 0.1
+    dimer_bias_atol = 0.2
     signal_rtol_perfect = 1
     signal_rtol_imperfect = 1
     size_rtol_perfect = 1
