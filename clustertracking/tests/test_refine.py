@@ -667,7 +667,7 @@ class RefineTsts(object):
 
     def test_dimer_noisy(self):
         if self.ndim == 3:
-            unittest.skipTest('Noisy tests are unstable in 3D')
+            raise SkipTest('Noisy tests are unstable in 3D')
         # dimer is defined as such: np.array([[0, -1], [0, 1]]
         devs = self.refine_cluster(2, hard_radius=1., noise=NOISE_NOISY,
                                    signal_dev=self.signal_dev,
@@ -698,7 +698,7 @@ class RefineTsts(object):
 
     def test_tetramer_constrained(self):
         if self.ndim != 3:
-            unittest.skipTest('Tetramers are only tested in 3D')
+            raise SkipTest('Tetramers are only tested in 3D')
         hard_radius = 1.
         constraints = tetramer(2*np.array(self.size)*hard_radius, self.ndim)
 
@@ -801,7 +801,6 @@ class TestFit_ring2D_gauss(RefineTsts, unittest.TestCase):
     signal_rtol_imperfect = 1
     size_rtol_perfect = 1
     size_rtol_imperfect = 1
-   # skip = True
 
 
 class TestFit_ring2D_a_gauss(RefineTsts, unittest.TestCase):
@@ -815,7 +814,6 @@ class TestFit_ring2D_a_gauss(RefineTsts, unittest.TestCase):
     signal_rtol_imperfect = 1
     size_rtol_perfect = 1
     size_rtol_imperfect = 1
-   # skip = True
 
 
 class TestFit_ring3D_gauss(RefineTsts, unittest.TestCase):
@@ -829,7 +827,6 @@ class TestFit_ring3D_gauss(RefineTsts, unittest.TestCase):
     signal_rtol_imperfect = 1
     size_rtol_perfect = 1
     size_rtol_imperfect = 1
-    #skip = True
 
 
 class TestFit_ring3D_a_gauss(RefineTsts, unittest.TestCase):
@@ -843,7 +840,6 @@ class TestFit_ring3D_a_gauss(RefineTsts, unittest.TestCase):
     signal_rtol_imperfect = 1
     size_rtol_perfect = 1
     size_rtol_imperfect = 1
-   # skip = True
 
 
 class TestMultiple(unittest.TestCase):

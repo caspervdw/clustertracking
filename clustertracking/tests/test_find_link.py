@@ -18,7 +18,8 @@ from trackpy.try_numba import NUMBA_AVAILABLE
 from trackpy.linking import PointND, Hash_table
 from trackpy.utils import pandas_sort
 
-from clustertracking import quiet, CoordinateReader, find_link
+from clustertracking import quiet, find_link
+from clustertracking.artificial import CoordinateReader
 from clustertracking.find_link import SubnetOversizeException
 from scipy.spatial import cKDTree
 
