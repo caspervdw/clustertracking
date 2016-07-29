@@ -21,17 +21,18 @@ pip install https://github.com/caspervdw/clustertracking/archive/master.zip
 With git:
 
 ```
-git clone https://github.com/caspervdw
+git clone https://github.com/caspervdw/clustertracking
 python setup.py install
 ```
 
 Dependencies
 ------------
+- python (tested on both 2.7 or 3.5)
 - numpy
-- scipy
-- pandas
-- trackpy
-- pims
+- scipy < 0.18.0
+- pandas >= 0.17.0
+- trackpy >= 0.3.0
+- pims >= 0.3.3
 
 Documentation
 -------------
