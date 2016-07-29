@@ -806,34 +806,8 @@ class TestFit_ring2D_gauss(RefineTsts, unittest.TestCase):
     size_rtol_imperfect = 1
 
 
-class TestFit_ring2D_a_gauss(RefineTsts, unittest.TestCase):
-    size = SIZE_2D_ANISOTROPIC
-    ndim = 2
-    feat_func = 'ring'
-    feat_kwargs = dict(thickness=RING_THICKNESS)
-    fit_func = 'gauss'
-    pos_atol_perfect = 0.1
-    signal_rtol_perfect = 1
-    signal_rtol_imperfect = 1
-    size_rtol_perfect = 1
-    size_rtol_imperfect = 1
-
-
 class TestFit_ring3D_gauss(RefineTsts, unittest.TestCase):
     size = SIZE_3D
-    ndim = 3
-    feat_func = 'ring'
-    feat_kwargs = dict(thickness=RING_THICKNESS)
-    fit_func = 'gauss'
-    pos_atol_perfect = 0.1
-    signal_rtol_perfect = 1
-    signal_rtol_imperfect = 1
-    size_rtol_perfect = 1
-    size_rtol_imperfect = 1
-
-
-class TestFit_ring3D_a_gauss(RefineTsts, unittest.TestCase):
-    size = SIZE_3D_ANISOTROPIC
     ndim = 3
     feat_func = 'ring'
     feat_kwargs = dict(thickness=RING_THICKNESS)
