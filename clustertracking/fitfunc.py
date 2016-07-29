@@ -3,7 +3,7 @@ from __future__ import division, print_function, absolute_import
 import six
 from .utils import default_pos_columns, default_size_columns, RefineException
 import numpy as np
-from warnings import warn
+import warnings
 
 
 MODE_DICT = {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6,
@@ -317,10 +317,11 @@ class FitFunctions(object):
         for param in self.params:
             if param not in self.param_mode:
                 self.param_mode[param] = 0
+                self.param_mode[param] = 0
 
         if self.param_mode['background'] == 1:
-            warn('The background param mode cannot vary per feature. '
-                 'Varying per cluster now.')
+            warnings.warn('The background param mode cannot vary per feature. '
+                          'Varying per cluster now.')
             self.param_mode['background'] = 3
 
         self.modes = [int(self.param_mode[p]) for p in self.params]
@@ -458,17 +459,19 @@ class FitFunctions(object):
     def compute_bounds(self, bounds, params, groups=None):
         abs, diff, reldiff = bounds
 
-        # compute the bounds: take the smallest bound possible
-        bound_low = np.nanmax([params - diff[0],            # difference bound
-                               params * (1 - reldiff[0])],  # rel. diff. bound
-                              axis=0)
-        # do the absolute bound seperately for proper array broadcasting
-        bound_low = np.fmax(bound_low, abs[0])
-        bound_low[np.isnan(bound_low)] = -np.inf
-        bound_high = np.nanmin([params + diff[1],
-                                params * (1 + reldiff[1])], axis=0)
-        bound_high = np.fmin(bound_high, abs[1])
-        bound_high[np.isnan(bound_high)] = np.inf
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            # compute the bounds: take the smallest bound possible
+            bound_low = np.nanmax([params - diff[0],            # difference bound
+                                   params * (1 - reldiff[0])],  # rel. diff. bound
+                                  axis=0)
+            # do the absolute bound seperately for proper array broadcasting
+            bound_low = np.fmax(bound_low, abs[0])
+            bound_low[np.isnan(bound_low)] = -np.inf
+            bound_high = np.nanmin([params + diff[1],
+                                    params * (1 + reldiff[1])], axis=0)
+            bound_high = np.fmin(bound_high, abs[1])
+            bound_high[np.isnan(bound_high)] = np.inf
         # transform to vector so that it aligns with the parameter vector
         # when parameters are concatenated into one value, take the bound
         # as broad as possible (using min and max operations)
