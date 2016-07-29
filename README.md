@@ -35,7 +35,7 @@ Dependencies
 
 Documentation
 -------------
-API documentation will be available soon. For now, consult the function docstrings.
+API documentation (work in progress) is available [over here](https://caspervdw.github.io/clustertracking/).
 
 
 Support
