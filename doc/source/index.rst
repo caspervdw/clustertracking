@@ -4,7 +4,8 @@ An algorithm to track overlapping features in video images
 
 This package contains Python code for tracking overlapping features in video images,
 such as present in for example confocal images of colloidal clusters. The code
-is heavily based on [Trackpy](http://github.com/soft-matter/trackpy).
+is heavily based on `Trackpy <http://github.com/soft-matter/trackpy>`_.
+
 
 Dependencies
 ------------

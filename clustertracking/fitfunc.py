@@ -250,13 +250,14 @@ def vect_to_params(vect, params, modes, groups=None):
 
 
 class FitFunctions(object):
+    """Helper class maintaining fit functions and bounds.
+
+    See also
+    --------
+    clustertracking.refine_leastsq
+    """
     def __init__(self, fit_function='gauss', ndim=2, isotropic=True,
                  param_mode=None):
-        """
-        param_mode : dict
-            defines the fit mode of each parameter,
-            choose from {'const', 'var', 'var_single'} or {0, 1, 2}
-        """
         self.ndim = ndim
         self.isotropic = isotropic
         self.pos_columns = default_pos_columns(ndim)

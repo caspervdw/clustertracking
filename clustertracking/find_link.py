@@ -387,6 +387,56 @@ def _sort_key_spl_dpl(x):
 def find_link(reader, search_range, separation, diameter=None, memory=0,
               minmass=0, noise_size=1, smoothing_size=None, threshold=None,
               percentile=64, before_link=None, after_link=None, refine=False):
+    """Find and link features in an image sequence
+
+    Parameters
+    ----------
+    reader : pims.FramesSequence
+    search_range : number or tuple
+        maximum displacement of features between subsequent frames
+    separation : number or tuple
+        minimum separation distance between features
+    diameter : number or tuple, optional
+        feature diameter, used for characterization only. Default: separation.
+    memory : number, optional
+        number of frames that features are allowed to dissappear. Experimental.
+        Default 0.
+    minmass : number, optional
+        minimum integrated intensity (in masked image). Default 0.
+    noise_size : number or tuple, optional
+        Size of Gaussian kernel with whith the image is convoluted for noise
+        reduction. Default 1.
+    smoothing_size : number or tuple, optional
+        Size of rolling average box for background subtraction.
+        By default, equals separation. This may introduce bias when refined on
+        the background subtracted image!
+    threshold : number, optional
+        Threshold value for image. Default None.
+    percentile : number, optional
+        The upper percentile of intensities in the image are considered as
+        feature locations. Default 64.
+    before_link : function, optional
+        This function is executed after the initial find of each frame, but
+        but before the linking and relocating.
+        It should take the following arguments (or **kwargs):
+            coords, reader, image, diameter, separation, search_range, margin,
+            minmass.
+        And it should return coords. coords is an ndarray containing the
+        initially found feature coordinates. image and reader are preprocessed.
+        Default None.
+    after_link : function, optional
+        This function is executed after the find and link of each frame. It
+        should not change the number of features.
+        It should take the following arguments (or **kwargs):
+            features, reader, image, diameter, separation, search_range, margin,
+            minmass.
+        And it should return features. features is a DataFrame containing the
+        feature coordinates and characterization.
+        image and reader are preprocessed. Default None.
+    refine : boolean, optional
+        Convenience parameter to do center-of-mass refinement. Cannot be used
+        combined with an after_link function. Default False.
+    """
     shape = reader[0].shape
     ndim = len(shape)
     if smoothing_size is None:

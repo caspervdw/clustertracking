@@ -15,6 +15,7 @@ from .preprocessing import lowpass
 from . import constraints
 from . import motion
 from . import artificial
+from . import find
 
 
 class IPythonStreamHandler(logging.StreamHandler):

@@ -7,6 +7,7 @@ from .utils import validate_tuple
 
 
 def slice_pad(image, center, radius):
+    """Slice a single feature from an image, pad when appropriate."""
     radius = validate_tuple(radius, image.ndim)
     center = validate_tuple(center, image.ndim)
 

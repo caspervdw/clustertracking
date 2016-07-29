@@ -12,10 +12,11 @@ Core functionality
 to sums of model functions.
 
 .. autosummary::
-    :toctree: generated/
+   :toctree: generated/
 
-    find_link
-    refine_leastsq
+   find_link
+   refine_leastsq
+
 
 Constraints
 -----------
@@ -23,10 +24,10 @@ Constraints
 .. autosummary::
     :toctree: generated/
 
-    constraints.dimer
-    constraints.trimer
-    constraints.tetramer
-    constraints.dimer_global
+   constraints.dimer
+   constraints.trimer
+   constraints.tetramer
+   constraints.dimer_global
 
 
 Model image creation
@@ -35,11 +36,11 @@ Model image creation
 .. autosummary::
     :toctree: generated/
 
-    artificial.SimulatedImage
-    artificial.CoordinateReader
-    artificial.get_single
-    artificial.get_dimer
-    artificial.get_multiple
+   artificial.SimulatedImage
+   artificial.CoordinateReader
+   artificial.get_single
+   artificial.get_dimer
+   artificial.get_multiple
 
 Cluster motion analysis
 -----------------------
@@ -47,10 +48,10 @@ Cluster motion analysis
 .. autosummary::
     :toctree: generated/
 
-    motion.orientation_df
-    motion.diffusion_tensor
-    motion.diffusion_tensor_ci
-    motion.friction_tensor
+   motion.orientation_df
+   motion.diffusion_tensor
+   motion.diffusion_tensor_ci
+   motion.friction_tensor
 
 Helper functions
 ----------------
@@ -58,6 +59,12 @@ Helper functions
 .. autosummary::
     :toctree: generated/
 
-    find_clusters
-    FitFunctions
-    lowpass
+   find.find_clusters
+   fitfunc.FitFunctions
+   fitfunc.vect_from_params
+   fitfunc.vect_to_params
+   masks.slice_pad
+   masks.slices_multiple
+   masks.slice_image
+   masks.mask_image
+   masks.binary_mask_multiple

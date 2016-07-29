@@ -8,6 +8,23 @@ This package contains Python code for tracking overlapping features in video ima
 such as present in for example confocal images of colloidal clusters. The code
 is heavily based on [Trackpy](http://github.com/soft-matter/trackpy).
 
+Installation
+------------
+If you are new to python, please checkout [this page](https://github.com/soft-matter/trackpy/wiki/Guide-to-Installing-Python-and-Python-Packages).
+
+With pip:
+
+```
+pip install https://github.com/caspervdw/clustertracking/archive/master.zip
+```
+
+With git:
+
+```
+git clone https://github.com/caspervdw
+python setup.py install
+```
+
 Dependencies
 ------------
 - numpy

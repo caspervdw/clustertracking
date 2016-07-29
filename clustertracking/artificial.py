@@ -401,6 +401,7 @@ class SimulatedImage(object):
 
 
 class CoordinateReader(FramesSequence):
+    """Generate a FramesSquence that draws features at given coordinates"""
     def __init__(self, f, shape, size, **kwargs):
         self._f = f.copy()
         self.pos_columns = ['z', 'y', 'x'][-len(shape):]
@@ -431,6 +432,7 @@ class CoordinateReader(FramesSequence):
 
 def get_single(shape, size=4, offset=0, feat_func=feat_hat, signal=100,
                **kwargs):
+    """Get image of a single feature"""
     if feat_func is feat_hat and 'disc_size' not in kwargs:
         kwargs['disc_size'] = 0.5
     elif feat_func is feat_ring and 'thickness' not in kwargs:
@@ -444,6 +446,7 @@ def get_single(shape, size=4, offset=0, feat_func=feat_hat, signal=100,
 
 def get_dimer(shape, size=4, hard_radius=2.5, angle=0, offset=0,
               feat_func=feat_hat, signal=100, **kwargs):
+    """Get image of a two features at given separation distance"""
     if feat_func is feat_hat and 'disc_size' not in kwargs:
         kwargs['disc_size'] = 0.5
     elif feat_func is feat_ring and 'thickness' not in kwargs:
@@ -457,6 +460,7 @@ def get_dimer(shape, size=4, hard_radius=2.5, angle=0, offset=0,
 
 def get_multiple(N, signal_range=(100, 255), size=4, separation=None, offset=0,
                  feat_func=feat_hat, signal=100, **kwargs):
+    """Get image of a N features on a grid with random subpx coordinate"""
     if feat_func is feat_hat and 'disc_size' not in kwargs:
         kwargs['disc_size'] = 0.5
     elif feat_func is feat_ring and 'thickness' not in kwargs:

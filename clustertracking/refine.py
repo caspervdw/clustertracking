@@ -80,30 +80,98 @@ def refine_leastsq(f, reader, diameter, separation=None, fit_function='gauss',
                    bounds=None, pos_columns=None, t_column='frame',
                    noise_size=None, threshold=None, max_iter=10, max_shift=1,
                    max_rms_dev=1., residual_factor=100000., **kwargs):
-    """ Refines cluster coordinates using gaussian fits, returns generator
-    iterating over cluster IDs.
+    """ Refines cluster coordinates by least-squares fitting to radial model
+    functions.
+
+    This does not raise an error if minimization failes. Instead, coordinates
+    are unchanged and the added column ``cost`` will be ``NaN``.
 
     Parameters
     ----------
-    f: DataFrame
-        pandas DataFrame containing coordinates of features
-        required columns: positions, 'signal', 'size', 'cluster', 'cluster_size'
-    reader: pims.Frame or pims.FramesSequence
-        pims.FrameSequence: object that returns an image when indexed
-    diameter: number or tuple
-        Determines mask size that is used on the image before fitting
-    constraints: dict
-        Contains constraints per cluster size in the form ``{2: <constraints>}``
-        These are described as follows (from scipy.optimize.minimize):
+    f : DataFrame
+        pandas DataFrame containing coordinates of features.
+        Required columns are positions. Any parameter that is not present should
+        be either given in the ``param_val`` dict (e.g. 'signal', 'size') or be
+        present in the ``default`` field of the used model function.
+    reader : pims.FramesSequence or ndarray
+        FrameSequence: object that returns an image when indexed. It should
+        provide the ``frame_shape`` attribute. If a FrameSequence is not given,
+        a single image is assumed and all features that are present in ``f`` are
+        assumed to be in that image.
+    diameter : number or tuple
+        Determines the feature mask size that is used for the refinement
+    separation : number or tuple
+        Determines the distance below which features are considered in the same
+        cluster. By default, equals ``diameter``. As the model feature function is
+        only defined up to ``diameter``, it only makes sense to change this
+        parameter in some edge cases.
+    fit_function : {'gauss', 'ring', 'inv_series_<number>'} or dict, optional
+        The shape of the used radial model function. Defaults to Gaussian.
+        The ring model function is a displaced gaussian with parameter ``thickness``.
+        The ``inv_series_<number>`` model function is the inverse of an
+        even polynomial containing ``<number>`` parameters
+        (e.g. A / (1 + a r^2 + b r^4 + c r^2 + ...)
+
+        Define your own model function with a dictionary, containing:
+
+            params : list of str
+                list of parameter names. has the same length as the ``p`` array
+                in ``func`` and ``dfunc``
+            func : callable
+                The image model function. It takes arguments ``(r2, p, ndim)``,
+                with ``r2`` being a 1d ndarray containing the squared reduced
+                radial distances.
+                (for isotropic, 2D: ``((x - c_x)^2 + (y - c_y)^2) / size^2``).
+                ``p`` is a 1d array of parameters single feature parameters.
+                ``ndim`` is the number of dimensions. Returns a 1d vector of the
+                same size as ``r2`` containing intensity values, normalized to 1.
+            dfunc : callable, optional
+                takes the same arguments as ``func``. Returns a tuple of size 2.
+                The first element: again the image model function, exactly as
+                returned by ``func``, because of performance considerations.
+                The second element: the Jacobian of ``func``. List of 1d arrays,
+                with length ``len(params) + 1``.
+                The first element is the derivative w.r.t. `r^2`, the following
+                elements each w.r.t. to a custom params, in the order given by
+                ``params``.
+            default : dict
+                Default parameter values.
+    param_mode : dict, optional
+        For each parameter, define whether it is constant or varies. Also define
+        whether variables are equal within each cluster or equal for all features.
+
+        Each parameter can have one of the following values:
+            ``'var'`` :
+                the parameter is allowed to vary for each feature
+                independently
+            ``'const'`` :
+                the parameter is not allowed to vary
+            ``'cluster'`` :
+                the parameter is allowed to vary, but is equal
+                within each cluster
+            ``'global'`` :
+                the parameter is allowed to vary, but is equal for each feature
+        Not implemented yet: ``'frame'`` and ``'particle'``
+
+        Default values for position coordinates and signal is ``'var'``, for
+        background ``'cluster'`` and for all others ``'const'``. Background
+        cannot vary per feature.
+    param_val : dict, optional
+        Default parameter values.
+    constraints : iterable of dicts
+        Contains definition
+        These are described as follows (adapted from scipy.optimize.minimize):
 
             type : str
                 Constraint type: 'eq' for equality, 'ineq' for inequality.
             fun : callable
-                The function defining the constraint.
-            jac : callable, optional
-                The Jacobian of `fun`
+                The function defining the constraint. The function is provided
+                a 3d ndarray with on the axes (<cluster>, <feature>, <parameters>)
+                parameters are (background, signal, <pos>, <size>, <other>)
             args : sequence, optional
-                Extra arguments to be passed to the function and Jacobian.
+                Extra arguments to be passed to the function.
+            cluster_size : integer
+                Size of the cluster to which the constraint applies
 
         Equality constraint means that the constraint function result is to
         be zero whereas inequality means that it is to be non-negative.
@@ -118,15 +186,11 @@ def refine_leastsq(f, reader, diameter, separation=None, fit_function='gauss',
         pos_columns (but direct values of each positions will have precedence)
         When the keyword `size` is used, this will be distributed to all sizes,
         in the case of anisotropic sizes (also, direct values have precedence)
-    var_size: boolean, optional
-        Determines whether size is varied in fitting. Default False.
-    var_signal: boolean, optional
-        Determines whether signal is varied in fitting. Default False.
     pos_columns: list of strings, optional
         Column names that contain the position coordinates.
         Defaults to ['y', 'x'] (or ['z', 'y', 'x'] if 'z' exists)
-    ignore_single: boolean, optional
-        Determines whether single particles are skipped. Default False.
+    t_column: string, optional
+        Column name that denotes the frame index. Default 'frame'
     noise_size: number, optional
         Noise size used in lowpass filter. Default None.
     threshold: number, optional
@@ -136,17 +200,25 @@ def refine_leastsq(f, reader, diameter, separation=None, fit_function='gauss',
     max_shift: float, optional
         Maximum satisfactory out-of-center distance. When the fitted gaussian
         is more out of center, do extra iteration. Default 1.
-    tol: float, optional
-        Accuracy, default 0.01.
-    max_res : float, optional
+    max_rms_dev : float, optional
         Maximum root mean squared difference between the final fit and the
-        (preprocessed) image, in units of the image maximum value. Default 0.05.
+        (preprocessed) image, in units of the image maximum value. Default 1.
+    residual_factor : float, optional
+        Factor with which the residual is multiplied, something internal inside
+        SLSQP makes it work best with this set around 100000. (which is Default)
+    kwargs : optional
+        other arguments are passed directly to scipy.minimize. Defaults are
+        ``dict(method='SLSQP', tol=1E-6)``
 
     Returns
     -------
-    iterable of new coordinates per cluster of particles
+    DataFrame of refined coordinates.
+    added column 'cluster': the cluster id of the feature.
+    added column 'cluster_size': the size of the cluster to which the feature belongs
     added column 'cost': root mean squared difference between the final fit and
-        the (preprocessed) image, in units of the cluster maximum value
+        the (preprocessed) image, in units of the cluster maximum value. If the
+        optimization fails, no error is raised feature fields are unchanged,
+        and this field becomes NaN.
     """
     _kwargs = dict(method='SLSQP', tol=1E-6)
     _kwargs.update(kwargs)

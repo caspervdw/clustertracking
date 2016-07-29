@@ -1,8 +1,7 @@
 import numpy as np
 
 def rotation_matrix(axis, theta):
-    """
-    Return the rotation matrix associated with counterclockwise rotation about
+    """Return the rotation matrix associated with counterclockwise rotation about
     the given axis by theta radians.
     """
     axis = np.asarray(axis)
@@ -39,23 +38,6 @@ def check_orthonormality(u1, u2, u3):
 
 
 def _orientation(pos, sizes):
-    """Calculate the orientation of a cluster, given by three orthonormal
-    unit vectors.
-
-    The input and output coordinates are given in x, y, z order
-
-    For a single particle:
-        - random coordinate system
-    For the dimer (features 0 and 1):
-        - z axis is from center to feature 0
-        - xy axis are chosen randomly (with uniformly distributed angle)
-    For the trimer (features 0, 1, and 2):
-        - z axis is from center to feature 0
-        - x axis is perpendicular to vector from feature 0 to 1 and to z
-    For the tetramer (features 0, 1, 2, and 3)
-        - z axis is from center to feature 0
-        - x axis is perpendicular to vector from feature 1 to 2 and to z
-    """
     pos = np.atleast_2d(pos)
     com = center_of_mass(pos, sizes)
     if len(pos) == 1:
@@ -91,6 +73,28 @@ def _orientation(pos, sizes):
 
 
 def orientation_df(f, cluster_size=2, mpp=1., sizes=None):
+    """Calculate the orientation of a dataframe of clusters, given by three
+    orthonormal unit vectors.
+
+    The input and output coordinates are given in x, y, z order.
+    All permutations of the feature coordinates are done.
+
+    Returns positions and orientations.
+
+    Definition of coordinate systems:
+
+    For a single particle:
+        - random coordinate system
+    For the dimer (features 0 and 1):
+        - z axis is from center to feature 0
+        - xy axis are chosen randomly (with uniformly distributed angle)
+    For the trimer (features 0, 1, and 2):
+        - z axis is from center to feature 0
+        - x axis is perpendicular to vector from feature 0 to 1 and to z
+    For the tetramer (features 0, 1, 2, and 3)
+        - z axis is from center to feature 0
+        - x axis is perpendicular to vector from feature 1 to 2 and to z
+    """
     if cluster_size == 1:
         permutations = [[0]]
     elif cluster_size == 2:
@@ -122,11 +126,7 @@ def orientation_df(f, cluster_size=2, mpp=1., sizes=None):
 
 
 def diffusion_tensor(positions, orientations, lagtime=1, fps=1.):
-    """Calculate friction tensor on the center of mass posititions and
-    orientations.
-    Orientations are given with 3x3 with three orthonormal vectors.
-
-    Return_val must be in {'D', 'H'}"""
+    """Calculate the diffusion tensor."""
     if orientations.ndim == 3:
         orientations = orientations[np.newaxis]
     all_xjn = []
@@ -151,11 +151,7 @@ def diffusion_tensor(positions, orientations, lagtime=1, fps=1.):
 
 
 def diffusion_tensor_ci(positions, orientations, lagtime=1, fps=1., **kwargs):
-    """Calculate friction tensor on the center of mass posititions and
-    orientations.
-    Orientations are given with 3x3 with three orthonormal vectors.
-
-    Return_val must be in {'D', 'H'}"""
+    """Calculate the diffusion tensor and the confidence interval using bootstrap."""
     from scikits import bootstrap
 
     if orientations.ndim == 3:
@@ -182,5 +178,7 @@ def diffusion_tensor_ci(positions, orientations, lagtime=1, fps=1., **kwargs):
 
 
 def friction_tensor(diff_tens):
-    """For physical units, multiply the result with  eta / (kB T)"""
+    """Convert diffusion tensor to friction tensor.
+
+    For physical units, multiply the result with  eta / (kB T)"""
     return np.linalg.inv(diff_tens.reshape((6, 6)))

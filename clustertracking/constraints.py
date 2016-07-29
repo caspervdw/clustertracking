@@ -69,6 +69,9 @@ def _dimer_fun(x, dist, ndim):
 
 
 def dimer(dist, ndim=2):
+    """Constrain clusters of 2 at given distance.
+
+    Allows image anisotropy by providing a tuple to as distance"""
     dist = np.array(validate_tuple(dist, ndim))
     return (dict(type='eq', cluster_size=2, fun=_dimer_fun, args=(dist, ndim)),)
 
@@ -88,6 +91,10 @@ def _trimer_fun(x, dist, ndim):
 
 
 def trimer(dist, ndim=2):
+    """Constrain clusters of 3 at given distance.
+
+    Allows image anisotropy by providing a tuple to as distance.
+    Constraints all 3 distances to the same distance."""
     dist = np.array(validate_tuple(dist, ndim))
     return (dict(type='eq', cluster_size=3, fun=_trimer_fun, args=(dist, ndim)),)
 
@@ -116,6 +123,11 @@ def _tetramer_fun_3d(x, dist):
                            1 - np.sum(((x[:, 2] - x[:, 3])/dist)**2, axis=1)))
 
 def tetramer(dist, ndim=2):
+    """Constrain clusters of 4 at given distance.
+
+    For 2D: features are in a perfect square (4 constraints)
+    For 3D: features are constrained in a tetrahedron (6 constraints).
+    Allows image anisotropy by providing a tuple to as distance."""
     dist = np.array(validate_tuple(dist, ndim))
     if ndim == 2:
         return (dict(type='eq', cluster_size=4, fun=_tetramer_fun_2d, args=(dist,)),)
@@ -149,6 +161,10 @@ def _dimer_fun_global(x, mpp, ndim):
 
 
 def dimer_global(mpp, ndim=2):
+    """Constrain clusters of 2 to a constant, unknown distance.
+
+    Allows image anisotropy by providing ``mpp``, microns per pixel. The
+    number of constraints equals the number of frames - 1."""
     # the jacobian seems to slow things down.
     # in tests: 26 iterations without, 198 with
     mpp = np.array(validate_tuple(mpp, ndim))
