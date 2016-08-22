@@ -8,7 +8,6 @@ from collections import deque
 
 import numpy as np
 import pandas as pd
-from scipy.spatial import cKDTree
 from scipy import ndimage
 
 import trackpy as tp
@@ -17,7 +16,7 @@ from trackpy.masks import r_squared_mask, x_squared_masks
 
 from .masks import slice_image, mask_image, slice_pad
 from .find import grey_dilation, drop_close
-from .utils import default_pos_columns, is_isotropic
+from .utils import default_pos_columns, is_isotropic, cKDTree
 from .preprocessing import preprocess
 
 logger = logging.getLogger(__name__)

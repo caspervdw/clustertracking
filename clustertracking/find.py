@@ -5,9 +5,8 @@ import six
 import numpy as np
 import pandas as pd
 from scipy import ndimage
-from scipy.spatial import cKDTree
 
-from .utils import validate_tuple, guess_pos_columns
+from .utils import validate_tuple, guess_pos_columns, cKDTree
 
 
 class Clusters(object):

@@ -7,7 +7,7 @@ python:
 
 install:
   - conda update --yes conda
-  - conda create -n testenv --yes numpy scipy==0.17.1 pandas nose python=$TRAVIS_PYTHON_VERSION
+  - conda create -n testenv --yes numpy scipy pandas nose python=$TRAVIS_PYTHON_VERSION
   - conda install -n testenv -c soft-matter --yes pims trackpy
   - source activate testenv
   - python setup.py build_ext install

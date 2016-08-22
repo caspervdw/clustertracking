@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from pims import Frame, FramesSequence
 from trackpy.utils import validate_tuple
-from scipy.spatial import cKDTree
+from .utils import cKDTree
 from .preprocessing import preprocess
 
 

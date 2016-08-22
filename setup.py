@@ -19,7 +19,7 @@ setup_parameters = dict(
     version='1.0',
     description="An algorithm to track overlapping features in video images",
     author="Casper van der Wel",
-    install_requires=['numpy', 'scipy<0.18', 'pandas>=0.17.0',
+    install_requires=['numpy', 'scipy', 'pandas>=0.17.0',
                       'trackpy>=0.3.0', 'pims>=0.3.3'],
     author_email="wel@physics.leidenuniv.nl",
     url="https://github.com/caspervdw/clustertracking",

@@ -29,7 +29,7 @@ Dependencies
 ------------
 - python (tested on both 2.7 or 3.5)
 - numpy
-- scipy < 0.18.0
+- scipy
 - pandas >= 0.17.0
 - trackpy >= 0.3.0
 - pims >= 0.3.3

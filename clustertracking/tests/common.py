@@ -3,7 +3,7 @@ from __future__ import (absolute_import, division, print_function,
 from numpy.testing import assert_allclose, assert_equal, assert_array_equal
 from pandas.util.testing import assert_frame_equal
 
-from scipy.spatial import cKDTree
+from clustertracking.utils import cKDTree
 
 def sort_positions(actual, expected):
     tree = cKDTree(actual)

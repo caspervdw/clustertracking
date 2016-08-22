@@ -2,9 +2,24 @@ from __future__ import (division, print_function, unicode_literals,
                         absolute_import)
 import six
 import numpy as np
-
+import warnings
 from trackpy.utils import validate_tuple
 
+import scipy
+from distutils.version import LooseVersion
+# Wrap the scipy cKDTree to work around a bug in scipy 0.18.0
+try:
+    is_scipy_018 = LooseVersion(scipy.__version__) == LooseVersion('0.18.0')
+except ValueError:  # Probably a development version
+    is_scipy_018 = False
+
+if is_scipy_018:
+    from scipy.spatial import KDTree as cKDTree
+    warnings.warn("Due to a bug in Scipy 0.18.0, the (faster) cKDTree cannot "
+                  "be used. For better linking performance, upgrade or "
+                  "downgrade scipy.")
+else:
+    from scipy.spatial import cKDTree
 
 def guess_pos_columns(f):
     if 'z' in f:

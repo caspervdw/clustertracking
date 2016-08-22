@@ -12,7 +12,7 @@ from clustertracking.artificial import (SimulatedImage, feat_gauss, rot_2d,
                                         rot_3d, draw_feature, draw_cluster)
 from clustertracking.constraints import dimer, trimer, tetramer, dimer_global
 from clustertracking.tests.common import assert_coordinates_close
-from scipy.spatial import cKDTree
+from clustertracking.utils import cKDTree
 from nose import SkipTest
 
 SIGNAL = 160           # so that + 50 + 20% is possible
