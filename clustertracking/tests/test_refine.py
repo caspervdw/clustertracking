@@ -83,7 +83,7 @@ class RefineTsts(object):
             raise SkipTest()
 
     def get_image(self, noise=0, signal_dev=0., size_dev=0., separation=None,
-                  noise_size=1, smoothing_size=None):
+                  denoise_size=None, smoothing_size=None):
         N = self.repeats
         if separation is None:
             separation = self.separation
@@ -117,17 +117,17 @@ class RefineTsts(object):
             image = image + np.random.poisson(noise, shape)
             if image.max() <= 255:
                 image = image.astype(np.uint8)
-            if smoothing_size is not None and noise_size is None:
+            if smoothing_size is not None and denoise_size is None:
                 raise ValueError('Cannot do smoothing without denoising')
             if smoothing_size is not None:
-                image = preprocess(image, noise_size, smoothing_size)
-            elif noise_size is not None:
-                image = lowpass(image, noise_size)
+                image = preprocess(image, denoise_size, smoothing_size)
+            elif denoise_size is not None:
+                image = lowpass(image, denoise_size)
 
         return image, (pos, signal, size)
 
     def get_image_clusters(self, cluster_size, hard_radius=1., noise=0,
-                           signal_dev=0, size_dev=0, noise_size=1,
+                           signal_dev=0, size_dev=0, denoise_size=None,
                            smoothing_size=None, angle=None):
         N = self.repeats
         separation = [int(sep + 2 * hard_radius * s)
@@ -177,12 +177,12 @@ class RefineTsts(object):
             image = image + np.random.poisson(noise, shape)
             if image.max() <= 255:
                 image = image.astype(np.uint8)
-            if smoothing_size is not None and noise_size is None:
+            if smoothing_size is not None and denoise_size is None:
                 raise ValueError('Cannot do smoothing without denoising')
             if smoothing_size is not None:
-                image = preprocess(image, noise_size, smoothing_size)
-            elif noise_size is not None:
-                image = lowpass(image, noise_size)
+                image = preprocess(image, denoise_size, smoothing_size)
+            elif denoise_size is not None:
+                image = lowpass(image, denoise_size)
 
         return image, (coords, signal, size), (pos, angles)
 
@@ -243,18 +243,18 @@ class RefineTsts(object):
             expected_rot = rot_func(expected_pos[cluster] - center, angle) + center
             pos_diff_rot[n] = (actual_rot - expected_rot).ravel()
         return pos_diff_rot
-
-    def sort(self, actual, expected_pos):
-        return actual
-        pos, signal, size, pos_err = actual
-        tree = cKDTree(pos)
-        deviations, argsort = tree.query(expected_pos)
-        if len(set(range(len(pos))) - set(argsort)) > 0:
-            raise AssertionError("Position sorting failed. At least one feature is "
-                                 "very far from where it should be.")
-        if pos_err is not None:
-            pos_err = pos_err[argsort]
-        return pos[argsort], signal[argsort], size[argsort], pos_err
+    #
+    # def sort(self, actual, expected_pos):
+    #     return actual
+    #     pos, signal, size, pos_err = actual
+    #     tree = cKDTree(pos)
+    #     deviations, argsort = tree.query(expected_pos)
+    #     if len(set(range(len(pos))) - set(argsort)) > 0:
+    #         raise AssertionError("Position sorting failed. At least one feature is "
+    #                              "very far from where it should be.")
+    #     if pos_err is not None:
+    #         pos_err = pos_err[argsort]
+    #     return pos[argsort], signal[argsort], size[argsort], pos_err
 
     def gen_p0_coords(self, expected_pos, pos_diff):
         # generate random points in a box
@@ -386,7 +386,8 @@ class RefineTsts(object):
 
 
     def refine(self, pos_diff=None, signal_dev=None, size_dev=None, noise=None,
-               param_mode=None, noise_size=1, smoothing_size=None, **kwargs):
+               param_mode=None, denoise_size=None, smoothing_size=None,
+               **kwargs):
         """
         Parameters
         ----------
@@ -413,7 +414,7 @@ class RefineTsts(object):
             noise = self.noise
         # generate image with array of features and deviating signal and size
         image, expected = self.get_image(noise, signal_dev, size_dev,
-                                         noise_size=noise_size,
+                                         denoise_size=denoise_size,
                                          smoothing_size=smoothing_size)
         expected_pos, expected_signal, expected_size = expected
         p0_pos = self.gen_p0_coords(expected_pos, pos_diff)
@@ -431,12 +432,12 @@ class RefineTsts(object):
         assert not np.any(np.isnan(actual['cost']))
 
         actual = self.from_dataframe(actual)
-        actual = self.sort(actual, expected_pos)
+       # actual = self.sort(actual, expected_pos)
         return self.compute_deviations(actual, expected)
 
 
     def refine_com(self, pos_diff=None, signal_dev=None, size_dev=None,
-                   noise=None, noise_size=1, smoothing_size=None, **kwargs):
+                   noise=None, denoise_size=1, smoothing_size=None, **kwargs):
         """
         Parameters
         ----------
@@ -459,7 +460,7 @@ class RefineTsts(object):
             noise = self.noise
         # generate image with array of features and deviating signal and size
         image, expected = self.get_image(noise, signal_dev, size_dev,
-                                         noise_size=noise_size,
+                                         denoise_size=denoise_size,
                                          smoothing_size=smoothing_size)
         expected_pos, expected_signal, expected_size = expected
         p0_pos = self.gen_p0_coords(expected_pos, pos_diff)
@@ -467,13 +468,13 @@ class RefineTsts(object):
         actual = refine_com(image, image, self.radius, p0_pos, **kwargs)
 
         actual = self.from_tp_ndarray(actual)
-        actual = self.sort(actual, expected_pos)
+        # actual = self.sort(actual, expected_pos)
         return self.compute_deviations(actual, expected)
 
 
     def refine_cluster(self, cluster_size, hard_radius, pos_diff=None,
                        signal_dev=None, size_dev=None, noise=None,
-                       param_mode=None, noise_size=1, smoothing_size=None,
+                       param_mode=None, denoise_size=None, smoothing_size=None,
                        angle=None, **kwargs):
         """
         Parameters
@@ -504,7 +505,7 @@ class RefineTsts(object):
                                                             hard_radius,
                                                             noise, signal_dev,
                                                             size_dev,
-                                                            noise_size,
+                                                            denoise_size,
                                                             smoothing_size,
                                                             angle)
         expected_pos, expected_signal, expected_size = expected
@@ -524,8 +525,8 @@ class RefineTsts(object):
         assert np.all(actual['cluster_size'] <= cluster_size)
 
         actual = self.from_dataframe(actual)
-        actual_pos, actual_signal, actual_size, pos_err = self.sort(actual, expected_pos)
-
+        # actual_pos, actual_signal, actual_size, pos_err = self.sort(actual, expected_pos)
+        actual_pos, actual_signal, actual_size, pos_err = actual
         deviations = self.get_deviations(actual_pos, expected_pos, cluster_size,
                                          expected_center, expected_angle)
         return self.compute_deviations_cluster(actual, expected, deviations)
@@ -533,7 +534,7 @@ class RefineTsts(object):
 
     def refine_cluster_com(self, cluster_size, hard_radius, pos_diff=None,
                            signal_dev=None, size_dev=None, noise=None,
-                           noise_size=1, smoothing_size=None, angle=None,
+                           denoise_size=1, smoothing_size=None, angle=None,
                            **kwargs):
         """
         Parameters
@@ -560,7 +561,7 @@ class RefineTsts(object):
                                                             hard_radius,
                                                             noise, signal_dev,
                                                             size_dev,
-                                                            noise_size,
+                                                            denoise_size,
                                                             smoothing_size,
                                                             angle)
         expected_pos, expected_signal, expected_size = expected
@@ -570,8 +571,8 @@ class RefineTsts(object):
         actual = refine_com(image, image, self.radius, p0_pos, **kwargs)
 
         actual = self.from_tp_ndarray(actual)
-        actual_pos, actual_signal, actual_size = self.sort(actual, expected_pos)
-
+        # actual_pos, actual_signal, actual_size, pos_err = self.sort(actual, expected_pos)
+        actual_pos, actual_signal, actual_size, pos_err = actual
         deviations = self.get_deviations(actual_pos, expected_pos, cluster_size,
                                          expected_center, expected_angle)
         return self.compute_deviations_cluster(actual, expected, deviations)
@@ -657,16 +658,16 @@ class RefineTsts(object):
         self.assertLess(devs['pos'], self.pos_atol_noisy)
 
     def test_noisy_var_size(self):
-        if self.ndim == 3:
-            raise SkipTest('Noisy tests involving size are unstable in 3D')
+        # if self.ndim == 3:
+        #     raise SkipTest('Noisy tests involving size are unstable in 3D')
         # const signal, var size
         devs = self.refine(param_mode=dict(size='var'), noise=NOISE_NOISY,
                            signal_dev=0, size_dev=self.size_dev)
         self.assertLess(devs['pos'], self.pos_atol_noisy)
 
     def test_noisy_var(self):
-        if self.ndim == 3:
-            raise SkipTest('Noisy tests involving size are unstable in 3D')
+        # if self.ndim == 3:
+        #     raise SkipTest('Noisy tests involving size are unstable in 3D')
         # var signal, var size
         devs = self.refine(param_mode=dict(signal='var', size='var'),
                            noise=NOISE_NOISY, signal_dev=self.signal_dev,
@@ -697,8 +698,8 @@ class RefineTsts(object):
         self.assertLess(devs['perp_rms'], self.pos_atol_imperfect)
 
     def test_dimer_noisy(self):
-        if self.ndim == 3:
-            raise SkipTest('Noisy overlap tests are unstable in 3D')
+        # if self.ndim == 3:
+        #     raise SkipTest('Noisy overlap tests are unstable in 3D')
         # dimer is defined as such: np.array([[0, -1], [0, 1]]
         devs = self.refine_cluster(2, hard_radius=1., noise=NOISE_NOISY,
                                    signal_dev=self.signal_dev,
