@@ -60,6 +60,7 @@ class RefineTsts(object):
         cls.radius = tuple([int(d // 2) for d in cls.diameter])
         cls.isotropic = np.all([cls.diameter[1:] == cls.diameter[:-1]])
         cls.pos_columns = ['z', 'y', 'x'][-cls.ndim:]
+        cls.pos_columns_err = [col + '_std' for col in cls.pos_columns]
         if cls.isotropic:
             cls.size_columns = ['size']
         else:
@@ -203,12 +204,16 @@ class RefineTsts(object):
 
     def from_dataframe(self, df):
         pos = df[self.pos_columns].values
+        try:
+            pos_err = df[self.pos_columns_err].values
+        except KeyError:
+            pos_err = None
         signal = df['signal'].values
         if self.isotropic:
             size = df[self.size_columns[0]].values
         else:
             size = df[self.size_columns].values
-        return pos, signal, size
+        return pos, signal, size, pos_err
 
     def from_tp_ndarray(self, ndarray):
         ndim = self.ndim
@@ -219,7 +224,7 @@ class RefineTsts(object):
         else:
             size = ndarray[:, 2*ndim:ndim:-1]
             signal = ndarray[:, 2*ndim + 2]
-        return pos, signal, size
+        return pos, signal, size, None
 
     def get_deviations(self, actual_pos, expected_pos, cluster_size,
                        expected_center, expected_angle):
@@ -241,13 +246,15 @@ class RefineTsts(object):
 
     def sort(self, actual, expected_pos):
         return actual
-        pos, signal, size = actual
+        pos, signal, size, pos_err = actual
         tree = cKDTree(pos)
         deviations, argsort = tree.query(expected_pos)
         if len(set(range(len(pos))) - set(argsort)) > 0:
             raise AssertionError("Position sorting failed. At least one feature is "
                                  "very far from where it should be.")
-        return pos[argsort], signal[argsort], size[argsort]
+        if pos_err is not None:
+            pos_err = pos_err[argsort]
+        return pos[argsort], signal[argsort], size[argsort], pos_err
 
     def gen_p0_coords(self, expected_pos, pos_diff):
         # generate random points in a box
@@ -263,7 +270,7 @@ class RefineTsts(object):
         return expected_pos + deviations
 
     def compute_deviations(self, actual, expected):
-        actual_pos, actual_signal, actual_size = actual
+        actual_pos, actual_signal, actual_size, pos_err = actual
         expected_pos, expected_signal, expected_size = expected
         # values to be tested
         result = dict()
@@ -273,12 +280,21 @@ class RefineTsts(object):
         # per direction
         moment1 = np.mean(deviations, axis=0)
         moment2 = np.mean(deviations**2, axis=0)
-        for col, _m1, _m2, _pos in zip(self.pos_columns, moment1, moment2, actual_pos.T):
+        for col, _m1, _m2, _pos in zip(self.pos_columns, moment1, moment2,
+                                       actual_pos.T):
             result[col + '_subpx'] = np.histogram(_pos % 1,
                                                   bins=np.arange(0, 1.1, 0.1))[0]
             result[col] = np.sqrt(_m2 - _m1**2)
             result[col + '_rms'] = np.sqrt(_m2)
             result[col + '_mean'] = _m1
+        if pos_err is not None:
+            result['pos_err_mean'] = np.mean(pos_err)
+            print(self._testMethodName, result['pos_err_mean'] - result['pos'],
+                  100 * (result['pos_err_mean'] / result['pos'] - 1), '%')
+            # for col, _err in zip(self.pos_columns, pos_err.T):
+            #     result[col + '_err_mean'] = np.mean(_err)
+            #     result[col + '_err_accuracy'] = np.mean(_err) - result[col + '_rms']
+            #     result[col + '_err_precision'] = np.mean((_err - result[col + '_rms'])**2)**0.5
         # rms relative signal deviation
         result['signal'] = np.mean((1 - actual_signal / expected_signal)**2)**0.5
         # rms relative size deviation
@@ -290,8 +306,9 @@ class RefineTsts(object):
                 result[col] = _err
         return result
 
-    def compute_deviations_cluster(self, actual, expected, deviations):
-        actual_pos, actual_signal, actual_size = actual
+    def compute_deviations_cluster(self, actual, expected, deviations,
+                                   pos_err=None):
+        actual_pos, actual_signal, actual_size, _ = actual
         expected_pos, expected_signal, expected_size = expected
         cluster_size = deviations.shape[1] // self.ndim
          # values to be tested
@@ -311,6 +328,11 @@ class RefineTsts(object):
             result[col] = np.sqrt(_moment2 - _moment1**2)
             result[col + '_mean'] = _moment1
             result[col + '_rms'] = np.sqrt(_moment2)
+        if pos_err is not None:
+            for col, _err in zip(cluster_pos_cols, pos_err):
+                result[col + '_err_mean'] = np.mean(_err)
+                result[col + '_err_accuracy'] = np.mean(_err) - result[col + '_rms']
+                result[col + '_err_precision'] = np.mean((_err - result[col + '_rms'])**2)**0.5
         if cluster_size == 2:
             result['parr'] = np.sqrt(0.5*(result['x0']**2 + result['x1']**2))
             result['parr_mean'] = (result['x1_mean'] - result['x0_mean']) / 2
@@ -318,6 +340,13 @@ class RefineTsts(object):
             result['perp'] = np.sqrt(0.5*(result['y0']**2 + result['y1']**2))
             result['perp_mean'] = (result['y1_mean'] - result['y0_mean']) / 2
             result['perp_rms'] = np.sqrt(0.5*(result['y0_rms']**2 + result['y1_rms']**2))
+            if pos_err is not None:
+                result['parr_err_mean'] = (result['x1_err_mean'] - result['x0_err_mean']) / 2
+                result['perp_err_mean'] = (result['y1_err_mean'] - result['y0_err_mean']) / 2
+                result['parr_err_accuracy'] = (result['x1_err_accuracy'] - result['x0_err_accuracy']) / 2
+                result['perp_err_accuracy'] = (result['y1_err_accuracy'] - result['y0_err_accuracy']) / 2
+                result['parr_err_precision'] = np.sqrt((result['x0_err_precision']**2 + result['x0_err_precision']**2))
+                result['perp_err_precision'] = np.sqrt((result['y0_err_precision']**2 + result['y0_err_precision']**2))
         # rms relative signal deviation
         result['signal'] = np.mean((1 - actual_signal / expected_signal)**2)**0.5
         # rms relative size deviation
@@ -489,14 +518,13 @@ class RefineTsts(object):
                                 pos_columns=self.pos_columns,
                                 t_column='frame',
                                 fit_function=self.fit_func,
-                                bounds=self.bounds,
-                                **kwargs)
+                                bounds=self.bounds, **kwargs)
 
         assert not np.any(np.isnan(actual['cost']))
         assert np.all(actual['cluster_size'] <= cluster_size)
 
         actual = self.from_dataframe(actual)
-        actual_pos, actual_signal, actual_size = self.sort(actual, expected_pos)
+        actual_pos, actual_signal, actual_size, pos_err = self.sort(actual, expected_pos)
 
         deviations = self.get_deviations(actual_pos, expected_pos, cluster_size,
                                          expected_center, expected_angle)
