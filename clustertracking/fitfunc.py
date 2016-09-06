@@ -90,10 +90,24 @@ def gauss_dfunc(r2, p, ndim):
     return func, [-0.5*ndim*func]
 
 
+def disc_func(r2, p, ndim):
+    result = np.ones_like(r2)
+    disc_size = p[0]
+    if disc_size <= 0:
+        return gauss_func(r2, None, ndim)
+    elif disc_size >= 1.:
+        disc_size = 0.999
+    mask = r2 > disc_size**2
+    result[mask] = np.exp(((r2[mask]**0.5 - disc_size)/(1 - disc_size))**2 *
+                          ndim/-2)
+    return result
+
+
 def ring_func(r2, p, ndim):
     t = p[0]
     r = r2**0.5
     return np.exp(-0.5 * ndim * ((r - 1 + t)/t)**2)
+
 
 def ring_dfunc(r2, p, ndim):
     t = p[0]
@@ -108,12 +122,20 @@ def inv_series_func(r2, p, ndim):
     """ p is a vector of arguments [mult, a, b, c, ...], defining the series:
     signal_mult / (1 + a r^2 + b r^4 + c r^6 + ...)
     """
-    n = np.arange(1, len(p))
-    series_param = np.ones_like(p, dtype=np.float64)
-    series_param[1:] = p[1:] * (ndim / 2)**n / np.cumprod(n)
+    series_param = np.array(p)
+    series_param[0] = 1.
     return p[0] / np.polyval(series_param, r2)
 
-#
+
+## def inv_series_func(r2, p, ndim):
+#     """ p is a vector of arguments [mult, a, b, c, ...], defining the series:
+#     signal_mult / (1 + a r^2 + b r^4 + c r^6 + ...)
+#     """
+#     n = np.arange(1, len(p))
+#     series_param = np.ones_like(p, dtype=np.float64)
+#     series_param[1:] = p[1:] * (ndim / 2)**n / np.cumprod(n)
+#     return p[0] / np.polyval(series_param, r2)
+
 # def inv_series_dfunc(r2, p, ndim):
 #     """ p is a vector of arguments [mult, a, b, c, ...], defining the series:
 #     signal_mult / (1 + a r^2 + b r^4 + c r^6 + ...)
@@ -145,7 +167,10 @@ def inv_series_func(r2, p, ndim):
 function_templates = dict(gauss=dict(params=[], func=gauss_func,
                                      dfunc=gauss_dfunc),
                           ring=dict(params=['thickness'], func=ring_func,
-                                    dfunc=ring_dfunc),
+                                    dfunc=ring_dfunc,
+                                    default=dict(thickness=0.5)),
+                          disc=dict(params=['disc_size'], func=disc_func,
+                                    default=dict(disc_size=0.5)),
                           inv_series=dict(func=inv_series_func))
 
 

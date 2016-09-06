@@ -191,6 +191,11 @@ def refine_leastsq(f, reader, diameter, separation=None, fit_function='gauss',
         pos_columns (but direct values of each positions will have precedence)
         When the keyword `size` is used, this will be distributed to all sizes,
         in the case of anisotropic sizes (also, direct values have precedence)
+
+        For example, ``{'x': (2, 6), 'x_diff': (5, 5), 'x_rel_diff': 0.2``
+        would limit the parameter ``'x'`` between 2 and 6, between ``x-5`` and
+        ``x+5``,  and between ``x*(1 - 0.2)`` and ``x*(1 + 0.2)``. The most
+        narrow bound is taken.
     pos_columns: list of strings, optional
         Column names that contain the position coordinates.
         Defaults to ['y', 'x'] (or ['z', 'y', 'x'] if 'z' exists)
@@ -488,7 +493,7 @@ def train_leastsq(f, reader, diameter, separation, fit_function='poly4',
         bounds = dict()
     for size_col in size_columns:
         if size_col + '_rel_diff' not in bounds:
-            bounds[size_col + '_rel_diff'] = (0.1, 10)
+            bounds[size_col + '_rel_diff'] = (0.9, 9)  # - 90%, +900%
 
     f = refine_leastsq(f, reader, diameter, separation,
                        fit_function=fit_function, param_mode=param_mode,

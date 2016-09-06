@@ -12,12 +12,11 @@ from clustertracking.artificial import (SimulatedImage, feat_gauss, rot_2d,
                                         rot_3d, draw_feature, draw_cluster)
 from clustertracking.constraints import dimer, trimer, tetramer, dimer_global
 from clustertracking.tests.common import assert_coordinates_close
-from clustertracking.utils import cKDTree
 from nose import SkipTest
 
-SIGNAL = 160           # so that + 50 + 20% is possible
+SIGNAL = 160          # so that * 2 + 20% is possible
 NOISE_IMPERFECT = 16  # S/N of 10
-NOISE_NOISY = 48      # S/N of 3.33
+NOISE_NOISY = 48      # S/N of 3
 DISC_SIZE = 0.5
 RING_THICKNESS = 0.5
 SIZE_2D = 4.
@@ -27,6 +26,8 @@ SIZE_3D_ANISOTROPIC = (4., 6., 6.)
 
 class RefineTsts(object):
     skip = False
+    skip_train = True
+    train_N = 20
     dtype = np.uint8
     signal = SIGNAL
     repeats = 20
@@ -36,6 +37,7 @@ class RefineTsts(object):
     signal_dev = 0.2
     size_dev = 0.2
     const_rtol = 1E-7
+    com_pos_atol = 0.1  # tolerance for center-of-mass position test
     pos_atol_perfect = 0.05
     pos_atol_imperfect = 0.05
     pos_atol_noisy = 0.2
@@ -46,7 +48,7 @@ class RefineTsts(object):
     signal_rtol_imperfect = 0.5  # accounting for 10% of noise
     size_rtol_perfect = 0.01
     size_rtol_imperfect = 0.5   # accounting for 10% of noise
-    bounds = dict(signal=(20, 2000), size=(1, 10))
+    bounds = dict(signal=(20, 2000), size=(.9, 9))
 
     @classmethod
     def setUpClass(cls):
@@ -73,18 +75,22 @@ class RefineTsts(object):
             cls.param_mode = dict(signal='const', size='const')
         if not hasattr(cls, 'feat_kwargs'):
             cls.feat_kwargs = dict()
-        if (cls.fit_func != 'gauss') and (not cls.skip):
-            cls.param_val = cls().train()
-        else:
-            cls.param_val = dict()
+        if cls.skip:
+            cls.skip_train = True
+        if not hasattr(cls, 'param_val'):
+            if not cls.skip_train:
+                cls.param_val = cls().train()
+            else:
+                cls.param_val = dict()
 
     def setUp(self):
         if self.skip:
             raise SkipTest()
 
     def get_image(self, noise=0, signal_dev=0., size_dev=0., separation=None,
-                  denoise_size=None, smoothing_size=None):
-        N = self.repeats
+                  denoise_size=None, smoothing_size=None, N=None):
+        if N is None:
+            N = self.repeats
         if separation is None:
             separation = self.separation
         margin = self.separation
@@ -363,7 +369,7 @@ class RefineTsts(object):
 
         image, expected = self.get_image(noise=NOISE_IMPERFECT,
                                          signal_dev=self.signal_dev,
-                                         size_dev=0,
+                                         size_dev=0, N=self.train_N,
                                          separation=[d*4 for d in self.diameter])
         expected_pos, expected_signal, expected_size = expected
 
@@ -580,9 +586,7 @@ class RefineTsts(object):
     def test_perfect_com(self):
         # sanity check for test
         devs = self.refine_com(signal_dev=0, size_dev=0, noise=0)
-        self.assertLess(devs['signal'], max(self.signal_rtol_perfect, 0.05))
-        self.assertLess(devs['size'], max(self.size_rtol_perfect, 0.1))
-        self.assertLess(devs['pos'], max(self.pos_atol_perfect, 0.1))
+        self.assertLess(devs['pos'], self.com_pos_atol)
 
     def test_perfect_const(self):
         # const signal and size
@@ -769,7 +773,79 @@ class TestFit_gauss3D_a(RefineTsts, unittest.TestCase):
      fit_func = 'gauss'
 
 
+class TestFit_ring2D(RefineTsts, unittest.TestCase):
+    skip_train = False
+    size = SIZE_2D
+    ndim = 2
+    feat_func = 'ring'
+    feat_kwargs = dict(thickness=RING_THICKNESS)
+    fit_func = 'ring'
+
+
+class TestFit_ring2D_a(RefineTsts, unittest.TestCase):
+    skip_train = False
+    size = SIZE_2D_ANISOTROPIC
+    ndim = 2
+    feat_func = 'ring'
+    feat_kwargs = dict(thickness=RING_THICKNESS)
+    fit_func = 'ring'
+
+
+class TestFit_ring3D(RefineTsts, unittest.TestCase):
+    skip_train = False
+    size = SIZE_3D
+    ndim = 3
+    feat_func = 'ring'
+    feat_kwargs = dict(thickness=RING_THICKNESS)
+    fit_func = 'ring'
+
+
 class TestFit_disc2D(RefineTsts, unittest.TestCase):
+    skip_train = False
+    size = SIZE_2D
+    ndim = 2
+    feat_func = 'disc'
+    feat_kwargs = dict(disc_size=DISC_SIZE)
+    fit_func = 'disc'
+
+
+class TestFit_disc2D_a(RefineTsts, unittest.TestCase):
+    skip_train = False
+    size = SIZE_2D_ANISOTROPIC
+    ndim = 2
+    feat_func = 'disc'
+    feat_kwargs = dict(disc_size=DISC_SIZE)
+    fit_func = 'disc'
+
+
+class TestFit_disc3D(RefineTsts, unittest.TestCase):
+    skip_train = False
+    size = SIZE_3D
+    ndim = 3
+    feat_func = 'disc'
+    feat_kwargs = dict(disc_size=DISC_SIZE)
+    fit_func = 'disc'
+
+
+class TestFit_disc3D_a(RefineTsts, unittest.TestCase):
+    skip_train = False
+    size = SIZE_3D_ANISOTROPIC
+    ndim = 3
+    feat_func = 'disc'
+    feat_kwargs = dict(disc_size=DISC_SIZE)
+    fit_func = 'disc'
+
+
+class TestFit_ring3D_a(RefineTsts, unittest.TestCase):
+    skip_train = False
+    size = SIZE_3D_ANISOTROPIC
+    ndim = 3
+    feat_func = 'ring'
+    feat_kwargs = dict(thickness=RING_THICKNESS)
+    fit_func = 'ring'
+
+
+class TestFit_disc2D_gauss(RefineTsts, unittest.TestCase):
     size = SIZE_2D
     ndim = 2
     feat_func = 'disc'
@@ -783,7 +859,7 @@ class TestFit_disc2D(RefineTsts, unittest.TestCase):
     size_rtol_imperfect = 1
 
 
-class TestFit_disc2D_a(RefineTsts, unittest.TestCase):
+class TestFit_disc2D_gauss_a(RefineTsts, unittest.TestCase):
     size = SIZE_2D_ANISOTROPIC
     ndim = 2
     feat_func = 'disc'
@@ -797,7 +873,7 @@ class TestFit_disc2D_a(RefineTsts, unittest.TestCase):
     size_rtol_imperfect = 1
 
 
-class TestFit_disc3D(RefineTsts, unittest.TestCase):
+class TestFit_disc3D_gauss(RefineTsts, unittest.TestCase):
     size = SIZE_3D
     ndim = 3
     feat_func = 'disc'
@@ -811,7 +887,7 @@ class TestFit_disc3D(RefineTsts, unittest.TestCase):
     size_rtol_imperfect = 1
 
 
-class TestFit_disc3D_a(RefineTsts, unittest.TestCase):
+class TestFit_disc3D_gauss_a(RefineTsts, unittest.TestCase):
     size = SIZE_3D_ANISOTROPIC
     ndim = 3
     feat_func = 'disc'
