@@ -40,6 +40,15 @@ def r2_isotropic_3d(mesh, p):
     return ((x-cx)**2 + (y-cy)**2 + (z-cz)**2) / size**2
 
 
+def r2_isotropic_3d_safe(mesh, p):
+    z, y, x = mesh
+    cz, cy, cx, size = p[2:6]
+    dist = (x-cx)**2 + (y-cy)**2 + (z-cz)**2
+    dist[dist < 1.] = np.nan
+    dist /= size**2
+    return dist
+
+
 def dr2_isotropic_3d(mesh, p):
     z, y, x = mesh
     cz, cy, cx, size = p[2:6]
@@ -55,6 +64,15 @@ def r2_anisotropic_2d(mesh, p):
     return (x-cx)**2 / size_x**2 + (y-cy)**2 / size_y**2
 
 
+def r2_anisotropic_2d_safe(mesh, p):
+    y, x = mesh
+    cy, cx, size_y, size_x = p[2:6]
+    mask = (x-cx)**2 + (y-cy)**2 < 1.
+    result = (x-cx)**2 / size_x**2 + (y-cy)**2 / size_y**2
+    result[mask] = np.nan
+    return result
+
+
 def dr2_anisotropic_2d(mesh, p):
     y, x = mesh
     cy, cx, size_y, size_x = p[2:6]
@@ -68,6 +86,16 @@ def r2_anisotropic_3d(mesh, p):
     z, y, x = mesh
     cz, cy, cx, size_z, size_y, size_x = p[2:8]
     return (x-cx)**2 / size_x**2 + (y-cy)**2 / size_y**2 + (z-cz)**2 / size_z**2
+
+
+def r2_anisotropic_3d_safe(mesh, p):
+    z, y, x = mesh
+    cz, cy, cx, size_z, size_y, size_x = p[2:8]
+    mask = (x-cx)**2 + (y-cy)**2 + (z-cz)**2 < 1.
+    result = (x-cx)**2 / size_x**2 + (y-cy)**2 / size_y**2 + \
+             (z-cz)**2 / size_z**2
+    result[mask] = np.nan
+    return result
 
 
 def dr2_anisotropic_3d(mesh, p):
@@ -165,13 +193,15 @@ def inv_series_func(r2, p, ndim):
 
 
 function_templates = dict(gauss=dict(params=[], func=gauss_func,
-                                     dfunc=gauss_dfunc),
+                                     dfunc=gauss_dfunc,
+                                     continuous=True),
                           ring=dict(params=['thickness'], func=ring_func,
                                     dfunc=ring_dfunc,
                                     default=dict(thickness=0.5)),
                           disc=dict(params=['disc_size'], func=disc_func,
                                     default=dict(disc_size=0.5)),
-                          inv_series=dict(func=inv_series_func))
+                          inv_series=dict(func=inv_series_func,
+                                          continuous=True))
 
 
 def vect_from_params(params, modes, groups=None, operation=None):
@@ -318,6 +348,7 @@ class FitFunctions(object):
         self.func = fit_function['func']
         self.dfunc = fit_function.get('dfunc', None)
         self.default = dict(background=0., **fit_function.get('default', dict()))
+        self.continuous = fit_function.get('continuous', False)
         self.has_jacobian = self.dfunc is not None
         self.params = ['background', 'signal'] + self.pos_columns + \
                       self.size_columns + self._params
@@ -362,14 +393,22 @@ class FitFunctions(object):
 
         self.modes = [int(self.param_mode[p]) for p in self.params]
 
-        if ndim == 2 and isotropic:
+        if ndim == 2 and isotropic and self.continuous:
+            self.r2_func, self.dr2_func = r2_isotropic_2d, dr2_isotropic_2d
+        elif ndim == 2 and not isotropic and self.continuous:
+            self.r2_func, self.dr2_func = r2_anisotropic_2d, dr2_anisotropic_2d
+        elif ndim == 3 and isotropic and self.continuous:
+            self.r2_func, self.dr2_func = r2_isotropic_3d, dr2_isotropic_3d
+        elif ndim == 3 and not isotropic and self.continuous:
+            self.r2_func, self.dr2_func = r2_anisotropic_3d, dr2_anisotropic_3d
+        elif ndim == 2 and isotropic:
             self.r2_func, self.dr2_func = r2_isotropic_2d_safe, dr2_isotropic_2d
         elif ndim == 2 and not isotropic:
-            self.r2_func, self.dr2_func = r2_anisotropic_2d, dr2_anisotropic_2d
+            self.r2_func, self.dr2_func = r2_anisotropic_2d_safe, dr2_anisotropic_2d
         elif ndim == 3 and isotropic:
-            self.r2_func, self.dr2_func = r2_isotropic_3d, dr2_isotropic_3d
+            self.r2_func, self.dr2_func = r2_isotropic_3d_safe, dr2_isotropic_3d
         elif ndim == 3 and not isotropic:
-            self.r2_func, self.dr2_func = r2_anisotropic_3d, dr2_anisotropic_3d
+            self.r2_func, self.dr2_func = r2_anisotropic_3d_safe, dr2_anisotropic_3d
         else:
             raise ValueError()
 
