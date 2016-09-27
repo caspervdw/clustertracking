@@ -163,12 +163,12 @@ feature locations. Default 64.</p>
 but before the linking and relocating.
 It should take the following arguments (or <a href="#id1"><span class="problematic" id="id2">**</span></a>kwargs):</p>
 <blockquote>
-<div><p>coords, reader, image, diameter, separation, search_range, margin,
-minmass.</p>
+<div><p>coords, reader, image, image_proc, diameter, separation,
+search_range, margin, minmass.</p>
 </div></blockquote>
 <p>And it should return coords. coords is an ndarray containing the
-initially found feature coordinates. image and reader are preprocessed.
-Default None.</p>
+initially found feature coordinates. image and reader are unprocessed.
+image_proc is the processed image. Default None.</p>
 </div></blockquote>
 <p><strong>after_link</strong> : function, optional</p>
 <blockquote>
@@ -176,12 +176,13 @@ Default None.</p>
 should not change the number of features.
 It should take the following arguments (or <a href="#id3"><span class="problematic" id="id4">**</span></a>kwargs):</p>
 <blockquote>
-<div><p>features, reader, image, diameter, separation, search_range, margin,
-minmass.</p>
+<div><p>features, reader, image, image_proc, diameter, separation,
+search_range, margin, minmass.</p>
 </div></blockquote>
 <p>And it should return features. features is a DataFrame containing the
 feature coordinates and characterization.
-image and reader are preprocessed. Default None.</p>
+image and reader are unprocessed. image_proc is the processed image.
+Default None.</p>
 </div></blockquote>
 <p><strong>refine</strong> : boolean, optional</p>
 <blockquote class="last">

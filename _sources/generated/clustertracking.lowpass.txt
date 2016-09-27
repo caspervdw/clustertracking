@@ -1,6 +1,0 @@
-clustertracking.lowpass
-=======================
-
-.. currentmodule:: clustertracking
-
-.. autofunction:: lowpass

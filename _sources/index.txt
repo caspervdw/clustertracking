@@ -14,6 +14,7 @@ Dependencies
 - pandas
 - trackpy
 - pims
+- optional: numdifftools
 
 Contents
 --------

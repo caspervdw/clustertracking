@@ -117,7 +117,6 @@
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="kn">as</span> <span class="nn">pd</span>
-<span class="kn">from</span> <span class="nn">scipy.spatial</span> <span class="kn">import</span> <span class="n">cKDTree</span>
 <span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">ndimage</span>
 
 <span class="kn">import</span> <span class="nn">trackpy</span> <span class="kn">as</span> <span class="nn">tp</span>
@@ -126,7 +125,7 @@
 
 <span class="kn">from</span> <span class="nn">.masks</span> <span class="kn">import</span> <span class="n">slice_image</span><span class="p">,</span> <span class="n">mask_image</span><span class="p">,</span> <span class="n">slice_pad</span>
 <span class="kn">from</span> <span class="nn">.find</span> <span class="kn">import</span> <span class="n">grey_dilation</span><span class="p">,</span> <span class="n">drop_close</span>
-<span class="kn">from</span> <span class="nn">.utils</span> <span class="kn">import</span> <span class="n">default_pos_columns</span><span class="p">,</span> <span class="n">is_isotropic</span>
+<span class="kn">from</span> <span class="nn">.utils</span> <span class="kn">import</span> <span class="n">default_pos_columns</span><span class="p">,</span> <span class="n">is_isotropic</span><span class="p">,</span> <span class="n">cKDTree</span>
 <span class="kn">from</span> <span class="nn">.preprocessing</span> <span class="kn">import</span> <span class="n">preprocess</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">__name__</span><span class="p">)</span>
@@ -528,20 +527,21 @@
 <span class="sd">        This function is executed after the initial find of each frame, but</span>
 <span class="sd">        but before the linking and relocating.</span>
 <span class="sd">        It should take the following arguments (or **kwargs):</span>
-<span class="sd">            coords, reader, image, diameter, separation, search_range, margin,</span>
-<span class="sd">            minmass.</span>
+<span class="sd">            coords, reader, image, image_proc, diameter, separation,</span>
+<span class="sd">            search_range, margin, minmass.</span>
 <span class="sd">        And it should return coords. coords is an ndarray containing the</span>
-<span class="sd">        initially found feature coordinates. image and reader are preprocessed.</span>
-<span class="sd">        Default None.</span>
+<span class="sd">        initially found feature coordinates. image and reader are unprocessed.</span>
+<span class="sd">        image_proc is the processed image. Default None.</span>
 <span class="sd">    after_link : function, optional</span>
 <span class="sd">        This function is executed after the find and link of each frame. It</span>
 <span class="sd">        should not change the number of features.</span>
 <span class="sd">        It should take the following arguments (or **kwargs):</span>
-<span class="sd">            features, reader, image, diameter, separation, search_range, margin,</span>
-<span class="sd">            minmass.</span>
+<span class="sd">            features, reader, image, image_proc, diameter, separation,</span>
+<span class="sd">            search_range, margin, minmass.</span>
 <span class="sd">        And it should return features. features is a DataFrame containing the</span>
 <span class="sd">        feature coordinates and characterization.</span>
-<span class="sd">        image and reader are preprocessed. Default None.</span>
+<span class="sd">        image and reader are unprocessed. image_proc is the processed image.</span>
+<span class="sd">        Default None.</span>
 <span class="sd">    refine : boolean, optional</span>
 <span class="sd">        Convenience parameter to do center-of-mass refinement. Cannot be used</span>
 <span class="sd">        combined with an after_link function. Default False.</span>
@@ -574,10 +574,11 @@
             <span class="k">return</span> <span class="n">features</span>
 
     <span class="n">features</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="n">reader_bp</span> <span class="o">=</span> <span class="n">preprocess</span><span class="p">(</span><span class="n">reader</span><span class="p">,</span> <span class="n">noise_size</span><span class="p">,</span> <span class="n">smoothing_size</span><span class="p">,</span> <span class="n">threshold</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">frame_no</span><span class="p">,</span> <span class="n">f_frame</span> <span class="ow">in</span> <span class="n">_find_link_iter</span><span class="p">(</span><span class="n">reader_bp</span><span class="p">,</span> <span class="n">search_range</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span>
+    <span class="n">proc_func</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">preprocess</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">noise_size</span><span class="p">,</span> <span class="n">smoothing_size</span><span class="p">,</span> <span class="n">threshold</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">frame_no</span><span class="p">,</span> <span class="n">f_frame</span> <span class="ow">in</span> <span class="n">_find_link_iter</span><span class="p">(</span><span class="n">reader</span><span class="p">,</span> <span class="n">search_range</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span>
                                              <span class="n">diameter</span><span class="p">,</span> <span class="n">memory</span><span class="p">,</span> <span class="n">percentile</span><span class="p">,</span>
-                                             <span class="n">minmass</span><span class="p">,</span> <span class="n">before_link</span><span class="p">,</span> <span class="n">after_link</span><span class="p">):</span>
+                                             <span class="n">minmass</span><span class="p">,</span> <span class="n">proc_func</span><span class="p">,</span>
+                                             <span class="n">before_link</span><span class="p">,</span> <span class="n">after_link</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">f_frame</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
             <span class="n">n_traj</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="k">else</span><span class="p">:</span>
@@ -891,6 +892,10 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">threshold</span> <span class="o">=</span> <span class="p">(</span><span class="bp">None</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>
 
+    <span class="k">def</span> <span class="nf">next_level</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">image</span><span class="p">,</span> <span class="n">extra_data</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">image</span> <span class="o">=</span> <span class="n">image</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">FindLinker</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">next_level</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">extra_data</span><span class="p">)</span>
+
     <span class="k">def</span> <span class="nf">relocate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source_points</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
         <span class="n">candidates</span><span class="p">,</span> <span class="n">extra_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_relocate_candidates</span><span class="p">(</span><span class="n">source_points</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">candidates</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
@@ -1016,8 +1021,8 @@
 
 
 <span class="k">def</span> <span class="nf">_find_link_iter</span><span class="p">(</span><span class="n">reader</span><span class="p">,</span> <span class="n">search_range</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span> <span class="n">diameter</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">memory</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
-                    <span class="n">percentile</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">minmass</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">before_link</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
-                    <span class="n">after_link</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+                    <span class="n">percentile</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">minmass</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">proc_func</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                    <span class="n">before_link</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">after_link</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
 
     <span class="n">shape</span> <span class="o">=</span> <span class="n">reader</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span>
     <span class="n">ndim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span>
@@ -1025,6 +1030,8 @@
     <span class="n">search_range</span> <span class="o">=</span> <span class="n">validate_tuple</span><span class="p">(</span><span class="n">search_range</span><span class="p">,</span> <span class="n">ndim</span><span class="p">)</span>
     <span class="n">separation</span> <span class="o">=</span> <span class="n">validate_tuple</span><span class="p">(</span><span class="n">separation</span><span class="p">,</span> <span class="n">ndim</span><span class="p">)</span>
     <span class="n">isotropic</span> <span class="o">=</span> <span class="n">is_isotropic</span><span class="p">(</span><span class="n">diameter</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">proc_func</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">proc_func</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span>
 
     <span class="k">if</span> <span class="n">diameter</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
         <span class="n">diameter</span> <span class="o">=</span> <span class="n">separation</span>
@@ -1056,10 +1063,13 @@
 
     <span class="n">reader_iter</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">reader</span><span class="p">)</span>
     <span class="n">image</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">reader_iter</span><span class="p">)</span>
+    <span class="n">image_proc</span> <span class="o">=</span> <span class="n">proc_func</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
 
-    <span class="n">coords</span> <span class="o">=</span> <span class="n">grey_dilation</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span> <span class="n">percentile</span><span class="p">,</span> <span class="n">margin</span><span class="p">,</span> <span class="n">precise</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">coords</span> <span class="o">=</span> <span class="n">grey_dilation</span><span class="p">(</span><span class="n">image_proc</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span> <span class="n">percentile</span><span class="p">,</span> <span class="n">margin</span><span class="p">,</span>
+                           <span class="n">precise</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">before_link</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
         <span class="n">coords</span> <span class="o">=</span> <span class="n">before_link</span><span class="p">(</span><span class="n">coords</span><span class="o">=</span><span class="n">coords</span><span class="p">,</span> <span class="n">reader</span><span class="o">=</span><span class="n">reader</span><span class="p">,</span> <span class="n">image</span><span class="o">=</span><span class="n">image</span><span class="p">,</span>
+                             <span class="n">image_proc</span><span class="o">=</span><span class="n">image_proc</span><span class="p">,</span>
                              <span class="n">diameter</span><span class="o">=</span><span class="n">diameter</span><span class="p">,</span> <span class="n">separation</span><span class="o">=</span><span class="n">separation</span><span class="p">,</span>
                              <span class="n">search_range</span><span class="o">=</span><span class="n">search_range</span><span class="p">,</span>
                              <span class="n">margin</span><span class="o">=</span><span class="n">margin</span><span class="p">,</span> <span class="n">minmass</span><span class="o">=</span><span class="n">minmass</span><span class="p">)</span>
@@ -1072,6 +1082,7 @@
     <span class="n">features</span> <span class="o">=</span> <span class="n">linker</span><span class="o">.</span><span class="n">to_dataframe</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">after_link</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="ow">and</span> <span class="n">features</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
         <span class="n">features</span> <span class="o">=</span> <span class="n">after_link</span><span class="p">(</span><span class="n">features</span><span class="o">=</span><span class="n">features</span><span class="p">,</span> <span class="n">reader</span><span class="o">=</span><span class="n">reader</span><span class="p">,</span> <span class="n">image</span><span class="o">=</span><span class="n">image</span><span class="p">,</span>
+                              <span class="n">image_proc</span><span class="o">=</span><span class="n">image_proc</span><span class="p">,</span>
                               <span class="n">diameter</span><span class="o">=</span><span class="n">diameter</span><span class="p">,</span> <span class="n">separation</span><span class="o">=</span><span class="n">separation</span><span class="p">,</span>
                               <span class="n">search_range</span><span class="o">=</span><span class="n">search_range</span><span class="p">,</span> <span class="n">margin</span><span class="o">=</span><span class="n">margin</span><span class="p">,</span>
                               <span class="n">minmass</span><span class="o">=</span><span class="n">minmass</span><span class="p">)</span>
@@ -1080,9 +1091,12 @@
     <span class="k">yield</span> <span class="n">image</span><span class="o">.</span><span class="n">frame_no</span><span class="p">,</span> <span class="n">features</span>
 
     <span class="k">for</span> <span class="n">image</span> <span class="ow">in</span> <span class="n">reader_iter</span><span class="p">:</span>
-        <span class="n">coords</span> <span class="o">=</span> <span class="n">grey_dilation</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span> <span class="n">percentile</span><span class="p">,</span> <span class="n">margin</span><span class="p">,</span> <span class="n">precise</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+        <span class="n">image_proc</span> <span class="o">=</span> <span class="n">proc_func</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="n">grey_dilation</span><span class="p">(</span><span class="n">image_proc</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span> <span class="n">percentile</span><span class="p">,</span> <span class="n">margin</span><span class="p">,</span>
+                               <span class="n">precise</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">before_link</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
             <span class="n">coords</span> <span class="o">=</span> <span class="n">before_link</span><span class="p">(</span><span class="n">coords</span><span class="o">=</span><span class="n">coords</span><span class="p">,</span> <span class="n">reader</span><span class="o">=</span><span class="n">reader</span><span class="p">,</span> <span class="n">image</span><span class="o">=</span><span class="n">image</span><span class="p">,</span>
+                                 <span class="n">image_proc</span><span class="o">=</span><span class="n">image_proc</span><span class="p">,</span>
                                  <span class="n">diameter</span><span class="o">=</span><span class="n">diameter</span><span class="p">,</span> <span class="n">separation</span><span class="o">=</span><span class="n">separation</span><span class="p">,</span>
                                  <span class="n">search_range</span><span class="o">=</span><span class="n">search_range</span><span class="p">,</span>
                                  <span class="n">margin</span><span class="o">=</span><span class="n">margin</span><span class="p">,</span> <span class="n">minmass</span><span class="o">=</span><span class="n">minmass</span><span class="p">)</span>
@@ -1091,11 +1105,11 @@
         <span class="n">coords</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
         <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">extra_data</span><span class="p">:</span>
             <span class="n">extra_data</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">extra_data</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">mask</span><span class="p">]</span>
-        <span class="n">linker</span><span class="o">.</span><span class="n">image</span> <span class="o">=</span> <span class="n">image</span>
-        <span class="n">linker</span><span class="o">.</span><span class="n">next_level</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">image</span><span class="o">.</span><span class="n">frame_no</span><span class="p">,</span> <span class="n">extra_data</span><span class="p">)</span>
+        <span class="n">linker</span><span class="o">.</span><span class="n">next_level</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">image</span><span class="o">.</span><span class="n">frame_no</span><span class="p">,</span> <span class="n">image_proc</span><span class="p">,</span> <span class="n">extra_data</span><span class="p">)</span>
         <span class="n">features</span> <span class="o">=</span> <span class="n">linker</span><span class="o">.</span><span class="n">to_dataframe</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">after_link</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="ow">and</span> <span class="n">features</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
             <span class="n">features</span> <span class="o">=</span> <span class="n">after_link</span><span class="p">(</span><span class="n">features</span><span class="o">=</span><span class="n">features</span><span class="p">,</span> <span class="n">reader</span><span class="o">=</span><span class="n">reader</span><span class="p">,</span> <span class="n">image</span><span class="o">=</span><span class="n">image</span><span class="p">,</span>
+                                  <span class="n">image_proc</span><span class="o">=</span><span class="n">image_proc</span><span class="p">,</span>
                                   <span class="n">diameter</span><span class="o">=</span><span class="n">diameter</span><span class="p">,</span> <span class="n">separation</span><span class="o">=</span><span class="n">separation</span><span class="p">,</span>
                                   <span class="n">search_range</span><span class="o">=</span><span class="n">search_range</span><span class="p">,</span> <span class="n">margin</span><span class="o">=</span><span class="n">margin</span><span class="p">,</span>
                                   <span class="n">minmass</span><span class="o">=</span><span class="n">minmass</span><span class="p">)</span>

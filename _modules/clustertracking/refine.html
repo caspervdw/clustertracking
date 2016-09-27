@@ -124,6 +124,10 @@
 <span class="kn">from</span> <span class="nn">.display</span> <span class="kn">import</span> <span class="n">display3d</span><span class="p">,</span> <span class="n">show_feature</span><span class="p">,</span> <span class="n">show_fit</span><span class="p">,</span> <span class="n">show_feature3d</span>
 
 <span class="kn">from</span> <span class="nn">scipy.optimize</span> <span class="kn">import</span> <span class="n">minimize</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">numdifftools</span> <span class="kn">import</span> <span class="n">Hessian</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">Hessian</span> <span class="o">=</span> <span class="bp">None</span>
 
 <span class="kn">from</span> <span class="nn">trackpy</span> <span class="kn">import</span> <span class="n">refine</span> <span class="k">as</span> <span class="n">refine_com</span>
 
@@ -145,7 +149,7 @@
         <span class="n">im</span> <span class="o">=</span> <span class="n">lowpass</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">noise_size</span><span class="p">,</span> <span class="n">threshold</span><span class="p">)</span>
 
     <span class="c"># include the edges where dist == 1 exactly</span>
-    <span class="n">dist</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(((</span><span class="n">np</span><span class="o">.</span><span class="n">indices</span><span class="p">(</span><span class="n">im</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="o">.</span><span class="n">T</span> <span class="o">-</span> <span class="p">(</span><span class="n">coord</span> <span class="o">-</span> <span class="n">origin</span><span class="p">))</span> <span class="o">/</span> <span class="n">radius</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">1</span>
+    <span class="n">dist</span> <span class="o">=</span> <span class="p">[(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(((</span><span class="n">np</span><span class="o">.</span><span class="n">indices</span><span class="p">(</span><span class="n">im</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="o">.</span><span class="n">T</span> <span class="o">-</span> <span class="p">(</span><span class="n">coord</span> <span class="o">-</span> <span class="n">origin</span><span class="p">))</span> <span class="o">/</span> <span class="n">radius</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">coord</span> <span class="ow">in</span> <span class="n">coords</span><span class="p">]</span>
 
     <span class="c"># to mask the image</span>
@@ -188,7 +192,8 @@
                    <span class="n">param_mode</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">param_val</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">constraints</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
                    <span class="n">bounds</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">pos_columns</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">t_column</span><span class="o">=</span><span class="s">&#39;frame&#39;</span><span class="p">,</span>
                    <span class="n">noise_size</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">max_shift</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
-                   <span class="n">max_rms_dev</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span> <span class="n">residual_factor</span><span class="o">=</span><span class="mf">100000.</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+                   <span class="n">max_rms_dev</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span> <span class="n">residual_factor</span><span class="o">=</span><span class="mf">100000.</span><span class="p">,</span>
+                   <span class="n">compute_error</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot; Refines cluster coordinates by least-squares fitting to radial model</span>
 <span class="sd">    functions.</span>
 
@@ -295,6 +300,11 @@
 <span class="sd">        pos_columns (but direct values of each positions will have precedence)</span>
 <span class="sd">        When the keyword `size` is used, this will be distributed to all sizes,</span>
 <span class="sd">        in the case of anisotropic sizes (also, direct values have precedence)</span>
+
+<span class="sd">        For example, ``{&#39;x&#39;: (2, 6), &#39;x_diff&#39;: (5, 5), &#39;x_rel_diff&#39;: 0.2``</span>
+<span class="sd">        would limit the parameter ``&#39;x&#39;`` between 2 and 6, between ``x-5`` and</span>
+<span class="sd">        ``x+5``,  and between ``x*(1 - 0.2)`` and ``x*(1 + 0.2)``. The most</span>
+<span class="sd">        narrow bound is taken.</span>
 <span class="sd">    pos_columns: list of strings, optional</span>
 <span class="sd">        Column names that contain the position coordinates.</span>
 <span class="sd">        Defaults to [&#39;y&#39;, &#39;x&#39;] (or [&#39;z&#39;, &#39;y&#39;, &#39;x&#39;] if &#39;z&#39; exists)</span>
@@ -315,9 +325,17 @@
 <span class="sd">    residual_factor : float, optional</span>
 <span class="sd">        Factor with which the residual is multiplied, something internal inside</span>
 <span class="sd">        SLSQP makes it work best with this set around 100000. (which is Default)</span>
+<span class="sd">    compute_error : boolean, optional</span>
+<span class="sd">        Requires numdifftools to be installed. Default False.</span>
+<span class="sd">        This is an experimental and untested feature that estimates the error</span>
+<span class="sd">        in the optimized parameters on a per-feature basis from the curvature</span>
+<span class="sd">        (diagonal elements of the Hessian) of the objective function in the</span>
+<span class="sd">        optimized point.</span>
 <span class="sd">    kwargs : optional</span>
 <span class="sd">        other arguments are passed directly to scipy.minimize. Defaults are</span>
-<span class="sd">        ``dict(method=&#39;SLSQP&#39;, tol=1E-6)``</span>
+<span class="sd">        ``dict(method=&#39;SLSQP&#39;, tol=1E-6,</span>
+<span class="sd">          options=dict(maxiter=100, disp=False))``</span>
+
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -327,13 +345,17 @@
 <span class="sd">    added column &#39;cost&#39;: root mean squared difference between the final fit and</span>
 <span class="sd">        the (preprocessed) image, in units of the cluster maximum value. If the</span>
 <span class="sd">        optimization fails, no error is raised feature fields are unchanged,</span>
-<span class="sd">        and this field becomes NaN.</span>
+<span class="sd">        and this field becomes NaN.\</span>
+<span class="sd">    addded columns of variable parameters (&#39;x_std&#39;, etc.) (only if compute_error is true)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">method</span><span class="o">=</span><span class="s">&#39;SLSQP&#39;</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1E-6</span><span class="p">)</span>
+    <span class="n">_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">method</span><span class="o">=</span><span class="s">&#39;SLSQP&#39;</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1E-6</span><span class="p">,</span>
+                   <span class="n">options</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">maxiter</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">disp</span><span class="o">=</span><span class="bp">False</span><span class="p">))</span>
     <span class="n">_kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
     <span class="c"># Initialize variables</span>
     <span class="k">if</span> <span class="n">pos_columns</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
         <span class="n">pos_columns</span> <span class="o">=</span> <span class="n">guess_pos_columns</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">compute_error</span> <span class="ow">and</span> <span class="p">(</span><span class="n">Hessian</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s">&#39;compute_error requires the package numdifftools&#39;</span><span class="p">)</span>
 
     <span class="c"># Cache images</span>
     <span class="k">try</span><span class="p">:</span>
@@ -380,6 +402,9 @@
     <span class="k">if</span> <span class="n">constraints</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
         <span class="n">constraints</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
 
+    <span class="c"># makes a copy</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="n">find_clusters</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span> <span class="n">pos_columns</span><span class="p">,</span> <span class="n">t_column</span><span class="p">)</span>
+
     <span class="c"># Assign param_val to dataframe</span>
     <span class="k">if</span> <span class="n">param_val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
         <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">param_val</span><span class="p">:</span>
@@ -388,10 +413,15 @@
     <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">col_missing</span><span class="p">:</span>
         <span class="n">f</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">ff</span><span class="o">.</span><span class="n">default</span><span class="p">[</span><span class="n">col</span><span class="p">]</span>
 
-    <span class="n">bounds</span> <span class="o">=</span> <span class="n">ff</span><span class="o">.</span><span class="n">validate_bounds</span><span class="p">(</span><span class="n">bounds</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="n">radius</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">compute_error</span><span class="p">:</span>
+        <span class="n">cols_std</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">ff</span><span class="o">.</span><span class="n">params</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">ff</span><span class="o">.</span><span class="n">param_mode</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">cols_std</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;{}_std&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">param</span><span class="p">))</span>
+                <span class="n">f</span><span class="p">[</span><span class="n">cols_std</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+        <span class="n">modes_std</span> <span class="o">=</span> <span class="p">[</span><span class="n">mode</span> <span class="k">for</span> <span class="n">mode</span> <span class="ow">in</span> <span class="n">ff</span><span class="o">.</span><span class="n">modes</span> <span class="k">if</span> <span class="n">mode</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span>
 
-    <span class="c"># makes a copy</span>
-    <span class="n">f</span> <span class="o">=</span> <span class="n">find_clusters</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span> <span class="n">pos_columns</span><span class="p">,</span> <span class="n">t_column</span><span class="p">)</span>
+    <span class="n">bounds</span> <span class="o">=</span> <span class="n">ff</span><span class="o">.</span><span class="n">validate_bounds</span><span class="p">(</span><span class="n">bounds</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="n">radius</span><span class="p">)</span>
 
     <span class="c"># split the problem into smaller ones, depending on param_mode</span>
     <span class="n">modes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ff</span><span class="o">.</span><span class="n">modes</span><span class="p">)</span>
@@ -453,7 +483,7 @@
                                   <span class="n">constraints</span><span class="o">=</span><span class="n">f_constraints</span><span class="p">,</span> <span class="n">jac</span><span class="o">=</span><span class="n">jacobian</span><span class="p">,</span>
                                   <span class="o">**</span><span class="n">_kwargs</span><span class="p">)</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">result</span><span class="p">[</span><span class="s">&#39;success&#39;</span><span class="p">]:</span>
-                    <span class="k">raise</span> <span class="n">RefineException</span>
+                    <span class="k">raise</span> <span class="n">RefineException</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s">&#39;message&#39;</span><span class="p">])</span>
 
                 <span class="n">rms_dev</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s">&#39;fun&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">residual_factor</span><span class="p">)</span>
                 <span class="n">params</span> <span class="o">=</span> <span class="n">vect_to_params</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s">&#39;x&#39;</span><span class="p">],</span> <span class="n">params</span><span class="p">,</span> <span class="n">ff</span><span class="o">.</span><span class="n">modes</span><span class="p">,</span> <span class="n">groups</span><span class="p">)</span>
@@ -468,21 +498,44 @@
 
             <span class="c"># check the final difference between fit and image</span>
             <span class="k">if</span> <span class="n">rms_dev</span> <span class="o">&gt;</span> <span class="n">max_rms_dev</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">RefineException</span>
+                <span class="k">raise</span> <span class="n">RefineException</span><span class="p">(</span><span class="s">&#39;The rms deviation of the fit ({0:.4f} is&#39;</span>
+                                      <span class="s">&#39;more than the maximum value of &#39;</span>
+                                      <span class="s">&#39;{1:.4f}.&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">rms_dev</span><span class="p">,</span> <span class="n">max_rms_dev</span><span class="p">))</span>
 
-        <span class="k">except</span> <span class="n">RefineException</span><span class="p">:</span>
+            <span class="c"># estimate the errors using the Hessian matrix</span>
+            <span class="c"># see Bevington PR, Robinson DK (2003) Data reduction and error</span>
+            <span class="c"># analysis for the physical sciences (McGraw-Hill Higher Education).</span>
+            <span class="c"># 3rd Ed. , equation (8.11)</span>
+            <span class="k">if</span> <span class="n">compute_error</span><span class="p">:</span>
+                <span class="n">hessian</span> <span class="o">=</span> <span class="n">Hessian</span><span class="p">(</span><span class="n">residual</span><span class="p">)(</span><span class="n">result</span><span class="p">[</span><span class="s">&#39;x&#39;</span><span class="p">])</span>
+                <span class="n">result_std</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">hessian</span><span class="p">)))</span>
+                <span class="n">params_std</span> <span class="o">=</span> <span class="n">vect_to_params</span><span class="p">(</span><span class="n">result_std</span><span class="p">,</span>
+                                            <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">params</span><span class="p">),</span>
+                                                      <span class="nb">len</span><span class="p">(</span><span class="n">modes_std</span><span class="p">))),</span>
+                                            <span class="n">modes_std</span><span class="p">,</span> <span class="n">groups</span><span class="p">)</span>
+
+        <span class="k">except</span> <span class="n">RefineException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">level</span> <span class="o">==</span> <span class="s">&#39;global&#39;</span><span class="p">:</span>
                 <span class="n">f</span><span class="p">[</span><span class="s">&#39;cost&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+                <span class="k">if</span> <span class="n">compute_error</span><span class="p">:</span>
+                    <span class="n">f</span><span class="p">[</span><span class="n">cols_std</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">f</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">f_iter</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="s">&#39;cost&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+                <span class="k">if</span> <span class="n">compute_error</span><span class="p">:</span>
+                    <span class="n">f</span><span class="p">[</span><span class="n">f_iter</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">cols_std</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s">&#39;RefineException: &#39;</span> <span class="o">+</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
             <span class="n">status</span> <span class="o">=</span> <span class="s">&#39;failed&#39;</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">level</span> <span class="o">==</span> <span class="s">&#39;global&#39;</span><span class="p">:</span>
                 <span class="n">f</span><span class="p">[</span><span class="n">ff</span><span class="o">.</span><span class="n">params</span><span class="p">]</span> <span class="o">=</span> <span class="n">params</span>
                 <span class="n">f</span><span class="p">[</span><span class="s">&#39;cost&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rms_dev</span>
+                <span class="k">if</span> <span class="n">compute_error</span><span class="p">:</span>
+                    <span class="n">f</span><span class="p">[</span><span class="n">cols_std</span><span class="p">]</span> <span class="o">=</span> <span class="n">params_std</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">f</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">f_iter</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">ff</span><span class="o">.</span><span class="n">params</span><span class="p">]</span> <span class="o">=</span> <span class="n">params</span>
                 <span class="n">f</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">f_iter</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="s">&#39;cost&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rms_dev</span>
+                <span class="k">if</span> <span class="n">compute_error</span><span class="p">:</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">f_iter</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">cols_std</span><span class="p">]</span> <span class="o">=</span> <span class="n">params_std</span>
             <span class="n">status</span> <span class="o">=</span> <span class="s">&#39;success&#39;</span>
 
         <span class="k">if</span> <span class="n">level</span> <span class="o">==</span> <span class="s">&#39;global&#39;</span><span class="p">:</span>
@@ -508,7 +561,7 @@
     <span class="k">return</span> <span class="n">f</span>
 
 </div>
-<span class="k">def</span> <span class="nf">train_leastsq</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">reader</span><span class="p">,</span> <span class="n">diameter</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span> <span class="n">fit_function</span><span class="o">=</span><span class="s">&#39;poly4&#39;</span><span class="p">,</span>
+<span class="k">def</span> <span class="nf">train_leastsq</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">reader</span><span class="p">,</span> <span class="n">diameter</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span> <span class="n">fit_function</span><span class="p">,</span>
                   <span class="n">param_mode</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-7</span><span class="p">,</span> <span class="n">pos_columns</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Obtain fit parameters from an image of features with equal size.</span>
 <span class="sd">    Different signal intensities per feature are allowed.&quot;&quot;&quot;</span>
@@ -561,14 +614,14 @@
         <span class="n">bounds</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
     <span class="k">for</span> <span class="n">size_col</span> <span class="ow">in</span> <span class="n">size_columns</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">size_col</span> <span class="o">+</span> <span class="s">&#39;_rel_diff&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">:</span>
-            <span class="n">bounds</span><span class="p">[</span><span class="n">size_col</span> <span class="o">+</span> <span class="s">&#39;_rel_diff&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+            <span class="n">bounds</span><span class="p">[</span><span class="n">size_col</span> <span class="o">+</span> <span class="s">&#39;_rel_diff&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.9</span><span class="p">,</span> <span class="mi">9</span><span class="p">)</span>  <span class="c"># - 90%, +900%</span>
 
     <span class="n">f</span> <span class="o">=</span> <span class="n">refine_leastsq</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">reader</span><span class="p">,</span> <span class="n">diameter</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span>
                        <span class="n">fit_function</span><span class="o">=</span><span class="n">fit_function</span><span class="p">,</span> <span class="n">param_mode</span><span class="o">=</span><span class="n">param_mode</span><span class="p">,</span>
                        <span class="n">tol</span><span class="o">=</span><span class="n">tol</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
     <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">f</span><span class="p">[</span><span class="s">&#39;cost&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
 
-    <span class="k">return</span> <span class="p">{</span><span class="n">p</span><span class="p">:</span> <span class="n">f</span><span class="p">[</span><span class="n">p</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">param_mode</span> <span class="k">if</span> <span class="n">param_mode</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">==</span> <span class="s">&#39;var_global&#39;</span><span class="p">}</span>
+    <span class="k">return</span> <span class="p">{</span><span class="n">p</span><span class="p">:</span> <span class="n">f</span><span class="p">[</span><span class="n">p</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">param_mode</span> <span class="k">if</span> <span class="n">param_mode</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">==</span> <span class="s">&#39;global&#39;</span><span class="p">}</span>
 </pre></div>
 
           </div>

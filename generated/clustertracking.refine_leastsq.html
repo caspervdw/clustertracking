@@ -109,7 +109,7 @@
 <h1>clustertracking.refine_leastsq<a class="headerlink" href="#clustertracking-refine-leastsq" title="Permalink to this headline">¶</a></h1>
 <dl class="function">
 <dt id="clustertracking.refine_leastsq">
-<code class="descclassname">clustertracking.</code><code class="descname">refine_leastsq</code><span class="sig-paren">(</span><em>f</em>, <em>reader</em>, <em>diameter</em>, <em>separation=None</em>, <em>fit_function='gauss'</em>, <em>param_mode=None</em>, <em>param_val=None</em>, <em>constraints=None</em>, <em>bounds=None</em>, <em>pos_columns=None</em>, <em>t_column='frame'</em>, <em>noise_size=None</em>, <em>threshold=None</em>, <em>max_iter=10</em>, <em>max_shift=1</em>, <em>max_rms_dev=1.0</em>, <em>residual_factor=100000.0</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/clustertracking/refine.html#refine_leastsq"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#clustertracking.refine_leastsq" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">clustertracking.</code><code class="descname">refine_leastsq</code><span class="sig-paren">(</span><em>f</em>, <em>reader</em>, <em>diameter</em>, <em>separation=None</em>, <em>fit_function='gauss'</em>, <em>param_mode=None</em>, <em>param_val=None</em>, <em>constraints=None</em>, <em>bounds=None</em>, <em>pos_columns=None</em>, <em>t_column='frame'</em>, <em>noise_size=None</em>, <em>threshold=None</em>, <em>max_iter=10</em>, <em>max_shift=1</em>, <em>max_rms_dev=1.0</em>, <em>residual_factor=100000.0</em>, <em>compute_error=False</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/clustertracking/refine.html#refine_leastsq"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#clustertracking.refine_leastsq" title="Permalink to this definition">¶</a></dt>
 <dd><p>Refines cluster coordinates by least-squares fitting to radial model
 functions.</p>
 <p>This does not raise an error if minimization failes. Instead, coordinates
@@ -257,6 +257,10 @@ be zero whereas inequality means that it is to be non-negative.</p>
 pos_columns (but direct values of each positions will have precedence)
 When the keyword <cite>size</cite> is used, this will be distributed to all sizes,
 in the case of anisotropic sizes (also, direct values have precedence)</p>
+<p>For example, <code class="docutils literal"><span class="pre">{'x':</span> <span class="pre">(2,</span> <span class="pre">6),</span> <span class="pre">'x_diff':</span> <span class="pre">(5,</span> <span class="pre">5),</span> <span class="pre">'x_rel_diff':</span> <span class="pre">0.2</span></code>
+would limit the parameter <code class="docutils literal"><span class="pre">'x'</span></code> between 2 and 6, between <code class="docutils literal"><span class="pre">x-5</span></code> and
+<code class="docutils literal"><span class="pre">x+5</span></code>,  and between <code class="docutils literal"><span class="pre">x*(1</span> <span class="pre">-</span> <span class="pre">0.2)</span></code> and <code class="docutils literal"><span class="pre">x*(1</span> <span class="pre">+</span> <span class="pre">0.2)</span></code>. The most
+narrow bound is taken.</p>
 </div></blockquote>
 <p><strong>pos_columns: list of strings, optional</strong></p>
 <blockquote>
@@ -294,10 +298,21 @@ is more out of center, do extra iteration. Default 1.</p>
 <div><p>Factor with which the residual is multiplied, something internal inside
 SLSQP makes it work best with this set around 100000. (which is Default)</p>
 </div></blockquote>
+<p><strong>compute_error</strong> : boolean, optional</p>
+<blockquote>
+<div><p>Requires numdifftools to be installed. Default False.
+This is an experimental and untested feature that estimates the error
+in the optimized parameters on a per-feature basis from the curvature
+(diagonal elements of the Hessian) of the objective function in the
+optimized point.</p>
+</div></blockquote>
 <p><strong>kwargs</strong> : optional</p>
 <blockquote>
 <div><p>other arguments are passed directly to scipy.minimize. Defaults are
-<code class="docutils literal"><span class="pre">dict(method='SLSQP',</span> <span class="pre">tol=1E-6)</span></code></p>
+<a href="#id1"><span class="problematic" id="id2">``</span></a>dict(method=&#8217;SLSQP&#8217;, tol=1E-6,</p>
+<blockquote>
+<div><p>options=dict(maxiter=100, disp=False))``</p>
+</div></blockquote>
 </div></blockquote>
 </td>
 </tr>
@@ -308,7 +323,7 @@ SLSQP makes it work best with this set around 100000. (which is Default)</p>
 <blockquote class="last">
 <div><p>the (preprocessed) image, in units of the cluster maximum value. If the
 optimization fails, no error is raised feature fields are unchanged,
-and this field becomes NaN.</p>
+and this field becomes NaN.    addded columns of variable parameters (&#8216;x_std&#8217;, etc.) (only if compute_error is true)</p>
 </div></blockquote>
 </td>
 </tr>

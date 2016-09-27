@@ -114,9 +114,8 @@
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="kn">as</span> <span class="nn">pd</span>
 <span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">ndimage</span>
-<span class="kn">from</span> <span class="nn">scipy.spatial</span> <span class="kn">import</span> <span class="n">cKDTree</span>
 
-<span class="kn">from</span> <span class="nn">.utils</span> <span class="kn">import</span> <span class="n">validate_tuple</span><span class="p">,</span> <span class="n">guess_pos_columns</span>
+<span class="kn">from</span> <span class="nn">.utils</span> <span class="kn">import</span> <span class="n">validate_tuple</span><span class="p">,</span> <span class="n">guess_pos_columns</span><span class="p">,</span> <span class="n">cKDTree</span>
 
 
 <span class="k">class</span> <span class="nc">Clusters</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
@@ -239,7 +238,7 @@
         <span class="k">yield</span> <span class="n">frame_no</span><span class="p">,</span> <span class="n">result</span>
 
 
-<div class="viewcode-block" id="find_clusters"><a class="viewcode-back" href="../../generated/clustertracking.find_clusters.html#clustertracking.find.find_clusters">[docs]</a><span class="k">def</span> <span class="nf">find_clusters</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span> <span class="n">pos_columns</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">t_column</span><span class="o">=</span><span class="s">&#39;frame&#39;</span><span class="p">):</span>
+<div class="viewcode-block" id="find_clusters"><a class="viewcode-back" href="../../generated/clustertracking.find.find_clusters.html#clustertracking.find.find_clusters">[docs]</a><span class="k">def</span> <span class="nf">find_clusters</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">separation</span><span class="p">,</span> <span class="n">pos_columns</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">t_column</span><span class="o">=</span><span class="s">&#39;frame&#39;</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot; Find clusters in a DataFrame of points from several frames.</span>
 
 <span class="sd">    Parameters</span>
