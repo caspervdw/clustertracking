@@ -26,8 +26,6 @@ SIZE_3D_ANISOTROPIC = (3., 5., 5.)
 
 class RefineTsts(object):
     skip = False
-    skip_train = True
-    train_N = 20
     dtype = np.uint8
     signal = SIGNAL
     repeats = 100
@@ -76,13 +74,8 @@ class RefineTsts(object):
             cls.param_mode = dict(signal='var', size='const')
         if not hasattr(cls, 'feat_kwargs'):
             cls.feat_kwargs = dict()
-        if cls.skip:
-            cls.skip_train = True
         if not hasattr(cls, 'param_val'):
-            if not cls.skip_train:
-                cls.param_val = cls().train()
-            else:
-                cls.param_val = dict()
+            cls.param_val = dict()
 
     def setUp(self):
         if self.skip:
@@ -365,31 +358,31 @@ class RefineTsts(object):
                 result[col] = _err
         return result
 
-    def train(self):
-        pos_diff = 0.1
-
-        image, expected = self.get_image(noise=NOISE_IMPERFECT,
-                                         signal_dev=self.signal_dev,
-                                         size_dev=0, N=self.train_N,
-                                         separation=[d*4 for d in self.diameter])
-        expected_pos, expected_signal, expected_size = expected
-
-        p0_coords = self.gen_p0_coords(expected_pos, pos_diff)
-        # generate noisy size initial conditions
-        p0_size = np.array([self.size]) * np.random.uniform(1-self.size_dev,
-                                                            1+self.size_dev,
-                                                            (len(expected_pos), 1))
-
-        f0 = self.to_dataframe(p0_coords, self.signal, p0_size.T)
-
-        # the fit function should be updated such that it is defined everywhere
-        # in the ROI with arbitrary center location. this means that we need to
-        # double the fit mask size here
-        fit_diameter = tuple([d * 2 for d in self.diameter])
-
-        param_val = train_leastsq(f0, image, fit_diameter, self.diameter,
-                                  self.fit_func, bounds=self.bounds)
-        return param_val
+    # def train(self, train_N=20):
+    #     pos_diff = 0.1
+    #
+    #     image, expected = self.get_image(noise=NOISE_IMPERFECT,
+    #                                      signal_dev=self.signal_dev,
+    #                                      size_dev=0, N=train_N,
+    #                                      separation=[d*4 for d in self.diameter])
+    #     expected_pos, expected_signal, expected_size = expected
+    #
+    #     p0_coords = self.gen_p0_coords(expected_pos, pos_diff)
+    #     # generate noisy size initial conditions
+    #     p0_size = np.array([self.size]) * np.random.uniform(1-self.size_dev,
+    #                                                         1+self.size_dev,
+    #                                                         (len(expected_pos), 1))
+    #
+    #     f0 = self.to_dataframe(p0_coords, self.signal, p0_size.T)
+    #
+    #     # the fit function should be updated such that it is defined everywhere
+    #     # in the ROI with arbitrary center location. this means that we need to
+    #     # double the fit mask size here
+    #     fit_diameter = tuple([d * 2 for d in self.diameter])
+    #
+    #     param_val = train_leastsq(f0, image, fit_diameter, self.diameter,
+    #                               self.fit_func, bounds=self.bounds)
+    #     return param_val
 
 
     def refine(self, pos_diff=None, signal_dev=None, size_dev=None, noise=None,
@@ -590,16 +583,12 @@ class RefineTsts(object):
                                          expected_center, expected_angle)
         return self.compute_deviations_cluster(actual, expected, deviations)
 
-    def test_aa_train(self):
-        # compare the param_val to the feat_kwargs
-        if len(self.param_val) == 0:
-            self.skipTest('No trained parameters for this fit function.')
-        for p in self.param_val:
-            if 'size' in p:
-                continue
-            self.assertLess(abs(1 - self.param_val[p] / self.feat_kwargs[p]),
-                            self.train_rtol)
-
+    # def test_train(self):
+    #     param_val = self.train()
+    #     print(param_val)
+    #     for p in self.param_val:
+    #         self.assertLess(abs(1 - self.param_val[p] / param_val[p]),
+    #                         self.train_rtol)
 
     def test_perfect_com(self):
         # sanity check for test
@@ -810,6 +799,7 @@ class TestFit_disc2D(RefineTsts, unittest.TestCase):
     ndim = 2
     feat_func = 'disc'
     feat_kwargs = dict(disc_size=DISC_SIZE)
+    param_val = feat_kwargs.copy()
     fit_func = 'disc'
 
 
@@ -819,6 +809,7 @@ class TestFit_disc2D_a(RefineTsts, unittest.TestCase):
     ndim = 2
     feat_func = 'disc'
     feat_kwargs = dict(disc_size=DISC_SIZE)
+    param_val = feat_kwargs.copy()
     fit_func = 'disc'
 
 
@@ -828,6 +819,7 @@ class TestFit_disc3D(RefineTsts, unittest.TestCase):
     ndim = 3
     feat_func = 'disc'
     feat_kwargs = dict(disc_size=DISC_SIZE)
+    param_val = feat_kwargs.copy()
     fit_func = 'disc'
 
 
@@ -837,6 +829,7 @@ class TestFit_disc3D_a(RefineTsts, unittest.TestCase):
     ndim = 3
     feat_func = 'disc'
     feat_kwargs = dict(disc_size=DISC_SIZE)
+    param_val = feat_kwargs.copy()
     fit_func = 'disc'
 
 
@@ -846,6 +839,7 @@ class TestFit_ring2D(RefineTsts, unittest.TestCase):
     ndim = 2
     feat_func = 'ring'
     feat_kwargs = dict(thickness=RING_THICKNESS)
+    param_val = feat_kwargs.copy()
     fit_func = 'ring'
     pos_diff = 0.25
 
@@ -856,6 +850,7 @@ class TestFit_ring2D_a(RefineTsts, unittest.TestCase):
     ndim = 2
     feat_func = 'ring'
     feat_kwargs = dict(thickness=RING_THICKNESS)
+    param_val = feat_kwargs.copy()
     fit_func = 'ring'
     pos_diff = 0.25
 
@@ -866,6 +861,7 @@ class TestFit_ring3D(RefineTsts, unittest.TestCase):
     ndim = 3
     feat_func = 'ring'
     feat_kwargs = dict(thickness=RING_THICKNESS)
+    param_val = feat_kwargs.copy()
     fit_func = 'ring'
     pos_diff = 0.25
 
@@ -876,6 +872,7 @@ class TestFit_ring3D_a(RefineTsts, unittest.TestCase):
     ndim = 3
     feat_func = 'ring'
     feat_kwargs = dict(thickness=RING_THICKNESS)
+    param_val = feat_kwargs.copy()
     fit_func = 'ring'
     pos_diff = 0.25
 
@@ -950,41 +947,20 @@ class TestMultiple(unittest.TestCase):
         assert_coordinates_close(result[self.im.pos_columns].values,
                                  self.im.coords, 0.1)
 
-    def test_constraints_dimers(self):
-        hard_radius = 1.
-        constraints = dimer(2*np.array(self.im.size)*hard_radius, self.im.ndim)
+    def test_var_global(self):
         self.im.clear()
-        self.im.draw_clusters(10, 2, hard_radius, 2*self.separation,
-                              2*self.diameter)
+        self.im.draw_features(100, 15, self.diameter)
 
         f0 = self.im.f(noise=self.pos_err)
+        f0['signal'] = 180
 
         result = refine_leastsq(f0, self.im(), self.diameter, self.separation,
-                                constraints=constraints)
+                                param_mode=dict(signal='global'))
 
-        dists = []
-        for _, f_cl in result.groupby('cluster'):
-            pos = result[['y', 'x']].values
-            dists.append(np.sqrt(np.sum(((pos[0] - pos[1])/np.array(self.im.size))**2)))
-
-        assert_allclose(dists, 2*hard_radius, atol=0.01)
         assert_coordinates_close(result[self.im.pos_columns].values,
                                  self.im.coords, 0.1)
-    # TODO Figure out what is going wrong in this test
-    # def test_var_global(self):
-    #     self.im.clear()
-    #     self.im.draw_features(100, 15, self.diameter)
-    #
-    #     f0 = self.im.f(noise=self.pos_err)
-    #     f0['signal'] = 180
-    #
-    #     result = refine_leastsq(f0, self.im(), self.diameter, self.separation,
-    #                             param_mode=dict(signal='global'))
-    #
-    #     assert_coordinates_close(result[self.im.pos_columns].values,
-    #                              self.im.coords, 0.1)
-    #     assert (result['signal'].values[1:] == result['signal'].values[:-1]).all()
-    #     assert_allclose(result['signal'].values, 200, atol=5)
+        assert (result['signal'].values[1:] == result['signal'].values[:-1]).all()
+        assert_allclose(result['signal'].values, 200, atol=5)
 
     def test_constraint_global_dimer(self):
         hard_radius = 1.

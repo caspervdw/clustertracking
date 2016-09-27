@@ -446,7 +446,7 @@ def refine_leastsq(f, reader, diameter, separation=None, fit_function='gauss',
     return f
 
 
-def train_leastsq(f, reader, diameter, separation, fit_function='poly4',
+def train_leastsq(f, reader, diameter, separation, fit_function,
                   param_mode=None, tol=1e-7, pos_columns=None, **kwargs):
     """Obtain fit parameters from an image of features with equal size.
     Different signal intensities per feature are allowed."""
@@ -506,4 +506,4 @@ def train_leastsq(f, reader, diameter, separation, fit_function='poly4',
                        tol=tol, bounds=bounds, **kwargs)
     assert np.isfinite(f['cost']).all()
 
-    return {p: f[p].mean() for p in param_mode if param_mode[p] == 'var_global'}
+    return {p: f[p].mean() for p in param_mode if param_mode[p] == 'global'}
