@@ -224,7 +224,9 @@ def refine_leastsq(f, reader, diameter, separation=None, fit_function='gauss',
         optimized point.
     kwargs : optional
         other arguments are passed directly to scipy.minimize. Defaults are
-        ``dict(method='SLSQP', tol=1E-6)``
+        ``dict(method='SLSQP', tol=1E-6,
+          options=dict(maxiter=100, disp=False))``
+
 
     Returns
     -------
@@ -237,7 +239,8 @@ def refine_leastsq(f, reader, diameter, separation=None, fit_function='gauss',
         and this field becomes NaN.\
     addded columns of variable parameters ('x_std', etc.) (only if compute_error is true)
     """
-    _kwargs = dict(method='SLSQP', tol=1E-6)
+    _kwargs = dict(method='SLSQP', tol=1E-6,
+                   options=dict(maxiter=100, disp=False))
     _kwargs.update(kwargs)
     # Initialize variables
     if pos_columns is None:
@@ -371,7 +374,7 @@ def refine_leastsq(f, reader, diameter, separation=None, fit_function='gauss',
                                   constraints=f_constraints, jac=jacobian,
                                   **_kwargs)
                 if not result['success']:
-                    raise RefineException
+                    raise RefineException(result['message'])
 
                 rms_dev = np.sqrt(result['fun'] / residual_factor)
                 params = vect_to_params(result['x'], params, ff.modes, groups)
@@ -386,7 +389,9 @@ def refine_leastsq(f, reader, diameter, separation=None, fit_function='gauss',
 
             # check the final difference between fit and image
             if rms_dev > max_rms_dev:
-                raise RefineException
+                raise RefineException('The rms deviation of the fit ({0:.4f} is'
+                                      'more than the maximum value of '
+                                      '{1:.4f}.'.format(rms_dev, max_rms_dev))
 
             # estimate the errors using the Hessian matrix
             # see Bevington PR, Robinson DK (2003) Data reduction and error
@@ -400,7 +405,7 @@ def refine_leastsq(f, reader, diameter, separation=None, fit_function='gauss',
                                                       len(modes_std))),
                                             modes_std, groups)
 
-        except RefineException:
+        except RefineException as e:
             if level == 'global':
                 f['cost'] = np.nan
                 if compute_error:
@@ -409,6 +414,7 @@ def refine_leastsq(f, reader, diameter, separation=None, fit_function='gauss',
                 f.loc[f_iter.index, 'cost'] = np.nan
                 if compute_error:
                     f[f_iter.index, cols_std] = np.nan
+            logger.warn('RefineException: ' + e.args[0])
             status = 'failed'
         else:
             if level == 'global':
