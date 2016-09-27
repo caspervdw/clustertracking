@@ -16,6 +16,7 @@ to sums of model functions.
 
    find_link
    refine_leastsq
+   train_leastsq
 
 
 Constraints

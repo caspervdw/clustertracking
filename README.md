@@ -33,10 +33,12 @@ Dependencies
 - pandas >= 0.17.0
 - trackpy >= 0.3.0
 - pims >= 0.3.3
+- optional: numdifftools
 
 Documentation
 -------------
-API documentation (work in progress) is available [over here](https://caspervdw.github.io/clustertracking/).
+API documentation is available [over here](https://caspervdw.github.io/clustertracking/).
+A preprint of the article corresponding to this code is available on [arXiv](https://arxiv.org/abs/1607.08819).
 
 
 Support
