@@ -17,6 +17,15 @@ def r2_isotropic_2d(mesh, p):
     return ((x-cx)**2 + (y-cy)**2) / size**2
 
 
+def r2_isotropic_2d_safe(mesh, p):
+    y, x = mesh
+    cy, cx, size = p[2:5]
+    dist = (x-cx)**2 + (y-cy)**2
+    dist[dist < 1.] = np.nan
+    dist /= size**2
+    return dist
+
+
 def dr2_isotropic_2d(mesh, p):
     y, x = mesh
     cy, cx, size = p[2:5]
@@ -29,6 +38,15 @@ def r2_isotropic_3d(mesh, p):
     z, y, x = mesh
     cz, cy, cx, size = p[2:6]
     return ((x-cx)**2 + (y-cy)**2 + (z-cz)**2) / size**2
+
+
+def r2_isotropic_3d_safe(mesh, p):
+    z, y, x = mesh
+    cz, cy, cx, size = p[2:6]
+    dist = (x-cx)**2 + (y-cy)**2 + (z-cz)**2
+    dist[dist < 1.] = np.nan
+    dist /= size**2
+    return dist
 
 
 def dr2_isotropic_3d(mesh, p):
@@ -46,6 +64,15 @@ def r2_anisotropic_2d(mesh, p):
     return (x-cx)**2 / size_x**2 + (y-cy)**2 / size_y**2
 
 
+def r2_anisotropic_2d_safe(mesh, p):
+    y, x = mesh
+    cy, cx, size_y, size_x = p[2:6]
+    mask = (x-cx)**2 + (y-cy)**2 < 1.
+    result = (x-cx)**2 / size_x**2 + (y-cy)**2 / size_y**2
+    result[mask] = np.nan
+    return result
+
+
 def dr2_anisotropic_2d(mesh, p):
     y, x = mesh
     cy, cx, size_y, size_x = p[2:6]
@@ -59,6 +86,16 @@ def r2_anisotropic_3d(mesh, p):
     z, y, x = mesh
     cz, cy, cx, size_z, size_y, size_x = p[2:8]
     return (x-cx)**2 / size_x**2 + (y-cy)**2 / size_y**2 + (z-cz)**2 / size_z**2
+
+
+def r2_anisotropic_3d_safe(mesh, p):
+    z, y, x = mesh
+    cz, cy, cx, size_z, size_y, size_x = p[2:8]
+    mask = (x-cx)**2 + (y-cy)**2 + (z-cz)**2 < 1.
+    result = (x-cx)**2 / size_x**2 + (y-cy)**2 / size_y**2 + \
+             (z-cz)**2 / size_z**2
+    result[mask] = np.nan
+    return result
 
 
 def dr2_anisotropic_3d(mesh, p):
@@ -81,31 +118,55 @@ def gauss_dfunc(r2, p, ndim):
     return func, [-0.5*ndim*func]
 
 
+def disc_func(r2, p, ndim):
+    result = np.ones_like(r2)
+    disc_size = p[0]
+    if disc_size <= 0:
+        return gauss_func(r2, None, ndim)
+    elif disc_size >= 1.:
+        disc_size = 0.999
+    mask = r2 > disc_size**2
+    result[mask] = np.exp(((r2[mask]**0.5 - disc_size)/(1 - disc_size))**2 *
+                          ndim/-2)
+    return result
+
+
 def ring_func(r2, p, ndim):
-    thickness = p[0]
-    return np.exp(-0.5 * ndim * ((r2**0.5 - 1)/thickness)**2)
+    t = p[0]
+    r = r2**0.5
+    return np.exp(-0.5 * ndim * ((r - 1 + t)/t)**2)
 
 
 def ring_dfunc(r2, p, ndim):
-    thickness = p[0]
-    func = np.exp(-0.5 * ndim * ((r2**0.5 - 1)/thickness)**2)
-    return func, [func*ndim*(r2**-0.5 - 1) / (2 * thickness**2),
-                  func*ndim*(r2**0.5 - 1)**2 / thickness**3]
+    t = p[0]
+    r = r2**0.5
+    num = r - 1 + t
+    func = np.exp(-0.5 * ndim * (num/t)**2)
+    return func, [func * (-0.5*ndim / (r*t**2)) * num,
+                  func * ndim * (num**2/t**3 - num / t**2)]
 
 
 def inv_series_func(r2, p, ndim):
     """ p is a vector of arguments [mult, a, b, c, ...], defining the series:
-    signal_mult / (1 + a r^2 + b r^4 + c r^2 + ...)
+    signal_mult / (1 + a r^2 + b r^4 + c r^6 + ...)
     """
-    n = np.arange(1, len(p))
-    series_param = np.ones_like(p, dtype=np.float64)
-    series_param[1:] = p[1:] * (ndim / 2)**n / np.cumprod(n)
+    series_param = np.array(p)
+    series_param[0] = 1.
     return p[0] / np.polyval(series_param, r2)
 
-#
+
+## def inv_series_func(r2, p, ndim):
+#     """ p is a vector of arguments [mult, a, b, c, ...], defining the series:
+#     signal_mult / (1 + a r^2 + b r^4 + c r^6 + ...)
+#     """
+#     n = np.arange(1, len(p))
+#     series_param = np.ones_like(p, dtype=np.float64)
+#     series_param[1:] = p[1:] * (ndim / 2)**n / np.cumprod(n)
+#     return p[0] / np.polyval(series_param, r2)
+
 # def inv_series_dfunc(r2, p, ndim):
 #     """ p is a vector of arguments [mult, a, b, c, ...], defining the series:
-#     signal_mult / (1 + a r^2 + b r^4 + c r^2 + ...)
+#     signal_mult / (1 + a r^2 + b r^4 + c r^6 + ...)
 #     """
 #     # n = np.arange(1, len(p))
 #     # series_param = np.ones_like(p, dtype=np.float64)
@@ -132,10 +193,15 @@ def inv_series_func(r2, p, ndim):
 
 
 function_templates = dict(gauss=dict(params=[], func=gauss_func,
-                                     dfunc=gauss_dfunc),
+                                     dfunc=gauss_dfunc,
+                                     continuous=True),
                           ring=dict(params=['thickness'], func=ring_func,
-                                    dfunc=ring_dfunc),
-                          inv_series=dict(func=inv_series_func))
+                                    dfunc=ring_dfunc,
+                                    default=dict(thickness=0.5)),
+                          disc=dict(params=['disc_size'], func=disc_func,
+                                    default=dict(disc_size=0.5)),
+                          inv_series=dict(func=inv_series_func,
+                                          continuous=True))
 
 
 def vect_from_params(params, modes, groups=None, operation=None):
@@ -282,6 +348,7 @@ class FitFunctions(object):
         self.func = fit_function['func']
         self.dfunc = fit_function.get('dfunc', None)
         self.default = dict(background=0., **fit_function.get('default', dict()))
+        self.continuous = fit_function.get('continuous', False)
         self.has_jacobian = self.dfunc is not None
         self.params = ['background', 'signal'] + self.pos_columns + \
                       self.size_columns + self._params
@@ -326,21 +393,30 @@ class FitFunctions(object):
 
         self.modes = [int(self.param_mode[p]) for p in self.params]
 
-        if ndim == 2 and isotropic:
+        if ndim == 2 and isotropic and self.continuous:
             self.r2_func, self.dr2_func = r2_isotropic_2d, dr2_isotropic_2d
-        elif ndim == 2 and not isotropic:
+        elif ndim == 2 and not isotropic and self.continuous:
             self.r2_func, self.dr2_func = r2_anisotropic_2d, dr2_anisotropic_2d
-        elif ndim == 3 and isotropic:
+        elif ndim == 3 and isotropic and self.continuous:
             self.r2_func, self.dr2_func = r2_isotropic_3d, dr2_isotropic_3d
-        elif ndim == 3 and not isotropic:
+        elif ndim == 3 and not isotropic and self.continuous:
             self.r2_func, self.dr2_func = r2_anisotropic_3d, dr2_anisotropic_3d
+        elif ndim == 2 and isotropic:
+            self.r2_func, self.dr2_func = r2_isotropic_2d_safe, dr2_isotropic_2d
+        elif ndim == 2 and not isotropic:
+            self.r2_func, self.dr2_func = r2_anisotropic_2d_safe, dr2_anisotropic_2d
+        elif ndim == 3 and isotropic:
+            self.r2_func, self.dr2_func = r2_isotropic_3d_safe, dr2_isotropic_3d
+        elif ndim == 3 and not isotropic:
+            self.r2_func, self.dr2_func = r2_anisotropic_3d_safe, dr2_anisotropic_3d
         else:
             raise ValueError()
 
-    def __repr__(self):
-        template = '{name}, ndim={ndim}, isotropic={isotropic}'
-        return template.format(name=self.name, ndim=self.ndim,
-                               isotropic=self.isotropic)
+    def plot_single_radial(self, r, **params):
+        p = [params[_name] for _name in self._params]
+        signal = params.get('signal', 1.)
+        background = params.get('background', 0.)
+        return background + signal * self.func(r**2, p, self.ndim)
 
     def get_residual(self, images, meshes, masks, params_const,
                      groups=None, norm=1.):
@@ -370,7 +446,7 @@ class FitFunctions(object):
                     r2 = r2_func(mesh[:, mask], params[i])
                     signal = params[i, 1]
                     diff[mask] -= signal * model_func(r2, params[i, -n_func_params:], ndim)
-                result += np.sum(diff**2) / len(image)  # residual is per pixel
+                result += np.nansum(diff**2) / len(image)  # residual is per pixel
             return result / norm
 
         if not self.has_jacobian:
@@ -404,9 +480,9 @@ class FitFunctions(object):
                     if n_func_params > 0:
                         derivs[j, -n_func_params:, mask] = signal * np.array(deriv[1:]).T
                 # residual is per pixel
-                result[indices, 1:] = np.sum(-2 * diff * derivs, axis=2) / len(image)
+                result[indices, 1:] = np.nansum(-2 * diff * derivs, axis=2) / len(image)
                 # background derivatives will be summed, so divide by n_cluster
-                result[indices, 0] = np.sum(-2 * diff) / (n_cluster * len(image))
+                result[indices, 0] = np.nansum(-2 * diff) / (n_cluster * len(image))
 
             return vect_from_params(result, modes, groups, operation=np.sum) / norm
 

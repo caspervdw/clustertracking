@@ -418,20 +418,21 @@ def find_link(reader, search_range, separation, diameter=None, memory=0,
         This function is executed after the initial find of each frame, but
         but before the linking and relocating.
         It should take the following arguments (or **kwargs):
-            coords, reader, image, diameter, separation, search_range, margin,
-            minmass.
+            coords, reader, image, image_proc, diameter, separation,
+            search_range, margin, minmass.
         And it should return coords. coords is an ndarray containing the
-        initially found feature coordinates. image and reader are preprocessed.
-        Default None.
+        initially found feature coordinates. image and reader are unprocessed.
+        image_proc is the processed image. Default None.
     after_link : function, optional
         This function is executed after the find and link of each frame. It
         should not change the number of features.
         It should take the following arguments (or **kwargs):
-            features, reader, image, diameter, separation, search_range, margin,
-            minmass.
+            features, reader, image, image_proc, diameter, separation,
+            search_range, margin, minmass.
         And it should return features. features is a DataFrame containing the
         feature coordinates and characterization.
-        image and reader are preprocessed. Default None.
+        image and reader are unprocessed. image_proc is the processed image.
+        Default None.
     refine : boolean, optional
         Convenience parameter to do center-of-mass refinement. Cannot be used
         combined with an after_link function. Default False.
@@ -464,10 +465,11 @@ def find_link(reader, search_range, separation, diameter=None, memory=0,
             return features
 
     features = []
-    reader_bp = preprocess(reader, noise_size, smoothing_size, threshold)
-    for frame_no, f_frame in _find_link_iter(reader_bp, search_range, separation,
+    proc_func = lambda x: preprocess(x, noise_size, smoothing_size, threshold)
+    for frame_no, f_frame in _find_link_iter(reader, search_range, separation,
                                              diameter, memory, percentile,
-                                             minmass, before_link, after_link):
+                                             minmass, proc_func,
+                                             before_link, after_link):
         if f_frame is None:
             n_traj = 0
         else:
@@ -781,6 +783,10 @@ class FindLinker(Linker):
 
         self.threshold = (None, None)
 
+    def next_level(self, coords, t, image, extra_data=None):
+        self.image = image
+        super(FindLinker, self).next_level(coords, t, extra_data)
+
     def relocate(self, source_points, n=1):
         candidates, extra_data = self.get_relocate_candidates(source_points)
         if candidates is None:
@@ -906,8 +912,8 @@ class FindLinker(Linker):
 
 
 def _find_link_iter(reader, search_range, separation, diameter=None, memory=0,
-                    percentile=64, minmass=0, before_link=None,
-                    after_link=None):
+                    percentile=64, minmass=0, proc_func=None,
+                    before_link=None, after_link=None):
 
     shape = reader[0].shape
     ndim = len(shape)
@@ -915,6 +921,8 @@ def _find_link_iter(reader, search_range, separation, diameter=None, memory=0,
     search_range = validate_tuple(search_range, ndim)
     separation = validate_tuple(separation, ndim)
     isotropic = is_isotropic(diameter)
+    if proc_func is None:
+        proc_func = lambda x: x
 
     if diameter is None:
         diameter = separation
@@ -946,10 +954,13 @@ def _find_link_iter(reader, search_range, separation, diameter=None, memory=0,
 
     reader_iter = iter(reader)
     image = next(reader_iter)
+    image_proc = proc_func(image)
 
-    coords = grey_dilation(image, separation, percentile, margin, precise=True)
+    coords = grey_dilation(image_proc, separation, percentile, margin,
+                           precise=True)
     if before_link is not None:
         coords = before_link(coords=coords, reader=reader, image=image,
+                             image_proc=image_proc,
                              diameter=diameter, separation=separation,
                              search_range=search_range,
                              margin=margin, minmass=minmass)
@@ -962,6 +973,7 @@ def _find_link_iter(reader, search_range, separation, diameter=None, memory=0,
     features = linker.to_dataframe()
     if after_link is not None and features is not None:
         features = after_link(features=features, reader=reader, image=image,
+                              image_proc=image_proc,
                               diameter=diameter, separation=separation,
                               search_range=search_range, margin=margin,
                               minmass=minmass)
@@ -970,9 +982,12 @@ def _find_link_iter(reader, search_range, separation, diameter=None, memory=0,
     yield image.frame_no, features
 
     for image in reader_iter:
-        coords = grey_dilation(image, separation, percentile, margin, precise=True)
+        image_proc = proc_func(image)
+        coords = grey_dilation(image_proc, separation, percentile, margin,
+                               precise=True)
         if before_link is not None:
             coords = before_link(coords=coords, reader=reader, image=image,
+                                 image_proc=image_proc,
                                  diameter=diameter, separation=separation,
                                  search_range=search_range,
                                  margin=margin, minmass=minmass)
@@ -981,11 +996,11 @@ def _find_link_iter(reader, search_range, separation, diameter=None, memory=0,
         coords = coords[mask]
         for key in extra_data:
             extra_data[key] = extra_data[key][mask]
-        linker.image = image
-        linker.next_level(coords, image.frame_no, extra_data)
+        linker.next_level(coords, image.frame_no, image_proc, extra_data)
         features = linker.to_dataframe()
         if after_link is not None and features is not None:
             features = after_link(features=features, reader=reader, image=image,
+                                  image_proc=image_proc,
                                   diameter=diameter, separation=separation,
                                   search_range=search_range, margin=margin,
                                   minmass=minmass)

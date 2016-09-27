@@ -15,6 +15,10 @@ from .fitfunc import FitFunctions, vect_to_params, vect_from_params
 from .display import display3d, show_feature, show_fit, show_feature3d
 
 from scipy.optimize import minimize
+try:
+    from numdifftools import Hessian
+except ImportError:
+    Hessian = None
 
 from trackpy import refine as refine_com
 
@@ -36,7 +40,7 @@ def prepare_subimage(coords, image, radius, noise_size=None, threshold=None):
         im = lowpass(im, noise_size, threshold)
 
     # include the edges where dist == 1 exactly
-    dist = [np.sum(((np.indices(im.shape).T - (coord - origin)) / radius)**2, -1) <= 1
+    dist = [(np.sum(((np.indices(im.shape).T - (coord - origin)) / radius)**2, -1) <= 1)
             for coord in coords]
 
     # to mask the image
@@ -79,7 +83,8 @@ def refine_leastsq(f, reader, diameter, separation=None, fit_function='gauss',
                    param_mode=None, param_val=None, constraints=None,
                    bounds=None, pos_columns=None, t_column='frame',
                    noise_size=None, threshold=None, max_iter=10, max_shift=1,
-                   max_rms_dev=1., residual_factor=100000., **kwargs):
+                   max_rms_dev=1., residual_factor=100000.,
+                   compute_error=False, **kwargs):
     """ Refines cluster coordinates by least-squares fitting to radial model
     functions.
 
@@ -186,6 +191,11 @@ def refine_leastsq(f, reader, diameter, separation=None, fit_function='gauss',
         pos_columns (but direct values of each positions will have precedence)
         When the keyword `size` is used, this will be distributed to all sizes,
         in the case of anisotropic sizes (also, direct values have precedence)
+
+        For example, ``{'x': (2, 6), 'x_diff': (5, 5), 'x_rel_diff': 0.2``
+        would limit the parameter ``'x'`` between 2 and 6, between ``x-5`` and
+        ``x+5``,  and between ``x*(1 - 0.2)`` and ``x*(1 + 0.2)``. The most
+        narrow bound is taken.
     pos_columns: list of strings, optional
         Column names that contain the position coordinates.
         Defaults to ['y', 'x'] (or ['z', 'y', 'x'] if 'z' exists)
@@ -206,9 +216,17 @@ def refine_leastsq(f, reader, diameter, separation=None, fit_function='gauss',
     residual_factor : float, optional
         Factor with which the residual is multiplied, something internal inside
         SLSQP makes it work best with this set around 100000. (which is Default)
+    compute_error : boolean, optional
+        Requires numdifftools to be installed. Default False.
+        This is an experimental and untested feature that estimates the error
+        in the optimized parameters on a per-feature basis from the curvature
+        (diagonal elements of the Hessian) of the objective function in the
+        optimized point.
     kwargs : optional
         other arguments are passed directly to scipy.minimize. Defaults are
-        ``dict(method='SLSQP', tol=1E-6)``
+        ``dict(method='SLSQP', tol=1E-6,
+          options=dict(maxiter=100, disp=False))``
+
 
     Returns
     -------
@@ -218,13 +236,17 @@ def refine_leastsq(f, reader, diameter, separation=None, fit_function='gauss',
     added column 'cost': root mean squared difference between the final fit and
         the (preprocessed) image, in units of the cluster maximum value. If the
         optimization fails, no error is raised feature fields are unchanged,
-        and this field becomes NaN.
+        and this field becomes NaN.\
+    addded columns of variable parameters ('x_std', etc.) (only if compute_error is true)
     """
-    _kwargs = dict(method='SLSQP', tol=1E-6)
+    _kwargs = dict(method='SLSQP', tol=1E-6,
+                   options=dict(maxiter=100, disp=False))
     _kwargs.update(kwargs)
     # Initialize variables
     if pos_columns is None:
         pos_columns = guess_pos_columns(f)
+    if compute_error and (Hessian is None):
+        raise ImportError('compute_error requires the package numdifftools')
 
     # Cache images
     try:
@@ -271,6 +293,9 @@ def refine_leastsq(f, reader, diameter, separation=None, fit_function='gauss',
     if constraints is None:
         constraints = dict()
 
+    # makes a copy
+    f = find_clusters(f, separation, pos_columns, t_column)
+
     # Assign param_val to dataframe
     if param_val is not None:
         for col in param_val:
@@ -279,10 +304,15 @@ def refine_leastsq(f, reader, diameter, separation=None, fit_function='gauss',
     for col in col_missing:
         f[col] = ff.default[col]
 
-    bounds = ff.validate_bounds(bounds, radius=radius)
+    if compute_error:
+        cols_std = []
+        for param in ff.params:
+            if ff.param_mode[param] > 0:
+                cols_std.append('{}_std'.format(param))
+                f[cols_std[-1]] = np.nan
+        modes_std = [mode for mode in ff.modes if mode > 0]
 
-    # makes a copy
-    f = find_clusters(f, separation, pos_columns, t_column)
+    bounds = ff.validate_bounds(bounds, radius=radius)
 
     # split the problem into smaller ones, depending on param_mode
     modes = np.array(ff.modes)
@@ -344,7 +374,7 @@ def refine_leastsq(f, reader, diameter, separation=None, fit_function='gauss',
                                   constraints=f_constraints, jac=jacobian,
                                   **_kwargs)
                 if not result['success']:
-                    raise RefineException
+                    raise RefineException(result['message'])
 
                 rms_dev = np.sqrt(result['fun'] / residual_factor)
                 params = vect_to_params(result['x'], params, ff.modes, groups)
@@ -359,21 +389,44 @@ def refine_leastsq(f, reader, diameter, separation=None, fit_function='gauss',
 
             # check the final difference between fit and image
             if rms_dev > max_rms_dev:
-                raise RefineException
+                raise RefineException('The rms deviation of the fit ({0:.4f} is'
+                                      'more than the maximum value of '
+                                      '{1:.4f}.'.format(rms_dev, max_rms_dev))
 
-        except RefineException:
+            # estimate the errors using the Hessian matrix
+            # see Bevington PR, Robinson DK (2003) Data reduction and error
+            # analysis for the physical sciences (McGraw-Hill Higher Education).
+            # 3rd Ed. , equation (8.11)
+            if compute_error:
+                hessian = Hessian(residual)(result['x'])
+                result_std = np.sqrt(2 * np.diag(np.linalg.inv(hessian)))
+                params_std = vect_to_params(result_std,
+                                            np.empty((len(params),
+                                                      len(modes_std))),
+                                            modes_std, groups)
+
+        except RefineException as e:
             if level == 'global':
                 f['cost'] = np.nan
+                if compute_error:
+                    f[cols_std] = np.nan
             else:
                 f.loc[f_iter.index, 'cost'] = np.nan
+                if compute_error:
+                    f[f_iter.index, cols_std] = np.nan
+            logger.warn('RefineException: ' + e.args[0])
             status = 'failed'
         else:
             if level == 'global':
                 f[ff.params] = params
                 f['cost'] = rms_dev
+                if compute_error:
+                    f[cols_std] = params_std
             else:
                 f.loc[f_iter.index, ff.params] = params
                 f.loc[f_iter.index, 'cost'] = rms_dev
+                if compute_error:
+                    f.loc[f_iter.index, cols_std] = params_std
             status = 'success'
 
         if level == 'global':
@@ -399,7 +452,7 @@ def refine_leastsq(f, reader, diameter, separation=None, fit_function='gauss',
     return f
 
 
-def train_leastsq(f, reader, diameter, separation, fit_function='poly4',
+def train_leastsq(f, reader, diameter, separation, fit_function,
                   param_mode=None, tol=1e-7, pos_columns=None, **kwargs):
     """Obtain fit parameters from an image of features with equal size.
     Different signal intensities per feature are allowed."""
@@ -452,11 +505,11 @@ def train_leastsq(f, reader, diameter, separation, fit_function='poly4',
         bounds = dict()
     for size_col in size_columns:
         if size_col + '_rel_diff' not in bounds:
-            bounds[size_col + '_rel_diff'] = (0.1, 10)
+            bounds[size_col + '_rel_diff'] = (0.9, 9)  # - 90%, +900%
 
     f = refine_leastsq(f, reader, diameter, separation,
                        fit_function=fit_function, param_mode=param_mode,
                        tol=tol, bounds=bounds, **kwargs)
     assert np.isfinite(f['cost']).all()
 
-    return {p: f[p].mean() for p in param_mode if param_mode[p] == 'var_global'}
+    return {p: f[p].mean() for p in param_mode if param_mode[p] == 'global'}
