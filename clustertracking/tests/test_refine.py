@@ -28,7 +28,7 @@ class RefineTsts(object):
     skip = False
     dtype = np.uint8
     signal = SIGNAL
-    repeats = 100
+    repeats = 20
     noise = NOISE_IMPERFECT
     pos_diff = 0.5  # in fraction of size
     train_params = []
@@ -794,7 +794,6 @@ class TestFit_gauss3D_a(RefineTsts, unittest.TestCase):
 
 
 class TestFit_disc2D(RefineTsts, unittest.TestCase):
-    skip_train = False
     size = SIZE_2D
     ndim = 2
     feat_func = 'disc'
@@ -804,7 +803,6 @@ class TestFit_disc2D(RefineTsts, unittest.TestCase):
 
 
 class TestFit_disc2D_a(RefineTsts, unittest.TestCase):
-    skip_train = False
     size = SIZE_2D_ANISOTROPIC
     ndim = 2
     feat_func = 'disc'
@@ -814,7 +812,6 @@ class TestFit_disc2D_a(RefineTsts, unittest.TestCase):
 
 
 class TestFit_disc3D(RefineTsts, unittest.TestCase):
-    skip_train = False
     size = SIZE_3D
     ndim = 3
     feat_func = 'disc'
@@ -824,7 +821,6 @@ class TestFit_disc3D(RefineTsts, unittest.TestCase):
 
 
 class TestFit_disc3D_a(RefineTsts, unittest.TestCase):
-    skip_train = False
     size = SIZE_3D_ANISOTROPIC
     ndim = 3
     feat_func = 'disc'
@@ -834,77 +830,55 @@ class TestFit_disc3D_a(RefineTsts, unittest.TestCase):
 
 
 class TestFit_ring2D(RefineTsts, unittest.TestCase):
-    skip_train = False
     size = SIZE_2D
     ndim = 2
     feat_func = 'ring'
     feat_kwargs = dict(thickness=RING_THICKNESS)
     param_val = feat_kwargs.copy()
     fit_func = 'ring'
-    pos_diff = 0.25
+    # as the rings are sharp features, large initial deviations in p0 may result
+    # in a failed convergence
+    pos_diff = 0.25  # 25% of feature radius
+    size_dev = 0.05  #  5% of feature size
 
 
 class TestFit_ring2D_a(RefineTsts, unittest.TestCase):
-    skip_train = False
     size = SIZE_2D_ANISOTROPIC
     ndim = 2
     feat_func = 'ring'
     feat_kwargs = dict(thickness=RING_THICKNESS)
     param_val = feat_kwargs.copy()
     fit_func = 'ring'
-    pos_diff = 0.25
+    # as the rings are sharp features, large initial deviations in p0 may result
+    # in a failed convergence
+    pos_diff = 0.25  # 25% of feature radius
+    size_dev = 0.05  #  5% of feature size
 
 
 class TestFit_ring3D(RefineTsts, unittest.TestCase):
-    skip_train = False
     size = SIZE_3D
     ndim = 3
     feat_func = 'ring'
     feat_kwargs = dict(thickness=RING_THICKNESS)
     param_val = feat_kwargs.copy()
     fit_func = 'ring'
-    pos_diff = 0.25
+    # as the rings are sharp features, large initial deviations in p0 may result
+    # in a failed convergence
+    pos_diff = 0.25  # 25% of feature radius
+    size_dev = 0.05  #  5% of feature size
 
 
 class TestFit_ring3D_a(RefineTsts, unittest.TestCase):
-    skip_train = False
     size = SIZE_3D_ANISOTROPIC
     ndim = 3
     feat_func = 'ring'
     feat_kwargs = dict(thickness=RING_THICKNESS)
     param_val = feat_kwargs.copy()
     fit_func = 'ring'
-    pos_diff = 0.25
-
-
-class TestFit_disc2D_gauss(RefineTsts, unittest.TestCase):
-    size = SIZE_2D
-    ndim = 2
-    feat_func = 'disc'
-    feat_kwargs = dict(disc_size=DISC_SIZE)
-    fit_func = 'gauss'
-    accuracy_perfect = 0.1
-    accuracy_imperfect = 0.1
-    accuracy_noisy = 0.1
-    signal_rtol_perfect = 1
-    signal_rtol_imperfect = 1
-    size_rtol_perfect = 1
-    size_rtol_imperfect = 1
-
-
-class TestFit_ring2D_gauss(RefineTsts, unittest.TestCase):
-    size = SIZE_2D
-    ndim = 2
-    feat_func = 'ring'
-    feat_kwargs = dict(thickness=RING_THICKNESS)
-    fit_func = 'gauss'
-    accuracy_perfect = 0.1
-    accuracy_imperfect = 0.1
-    accuracy_noisy = 0.1
-    signal_rtol_perfect = 1
-    signal_rtol_imperfect = 1
-    size_rtol_perfect = 1
-    size_rtol_imperfect = 1
+    # as the rings are sharp features, large initial deviations in p0 may result
+    # in a failed convergence
+    pos_diff = 0.25  # 25% of feature radius
+    size_dev = 0.05  #  5% of feature size
 
 
 class TestMultiple(unittest.TestCase):
@@ -955,7 +929,8 @@ class TestMultiple(unittest.TestCase):
         f0['signal'] = 180
 
         result = refine_leastsq(f0, self.im(), self.diameter, self.separation,
-                                param_mode=dict(signal='global'))
+                                param_mode=dict(signal='global'),
+                                options=dict(maxiter=10000))
 
         assert_coordinates_close(result[self.im.pos_columns].values,
                                  self.im.coords, 0.1)
