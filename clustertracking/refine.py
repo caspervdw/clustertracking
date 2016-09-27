@@ -218,6 +218,10 @@ def refine_leastsq(f, reader, diameter, separation=None, fit_function='gauss',
         SLSQP makes it work best with this set around 100000. (which is Default)
     compute_error : boolean, optional
         Requires numdifftools to be installed. Default False.
+        This is an experimental and untested feature that estimates the error
+        in the optimized parameters on a per-feature basis from the curvature
+        (diagonal elements of the Hessian) of the objective function in the
+        optimized point.
     kwargs : optional
         other arguments are passed directly to scipy.minimize. Defaults are
         ``dict(method='SLSQP', tol=1E-6)``
@@ -238,6 +242,8 @@ def refine_leastsq(f, reader, diameter, separation=None, fit_function='gauss',
     # Initialize variables
     if pos_columns is None:
         pos_columns = guess_pos_columns(f)
+    if compute_error and (Hessian is None):
+        raise ImportError('compute_error requires the package numdifftools')
 
     # Cache images
     try:
