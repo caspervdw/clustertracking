@@ -16,7 +16,7 @@ except ImportError:
 
 setup_parameters = dict(
     name="clustertracking",
-    version='1.0',
+    version='0.2',
     description="An algorithm to track overlapping features in video images",
     author="Casper van der Wel",
     install_requires=['numpy', 'scipy', 'pandas>=0.17.0',
