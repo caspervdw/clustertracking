@@ -14,15 +14,15 @@ from clustertracking.constraints import dimer, trimer, tetramer, dimer_global
 from clustertracking.tests.common import assert_coordinates_close
 from nose import SkipTest
 
-SIGNAL = 160          # so that * 2 + 20% is possible
+SIGNAL = 160
 NOISE_IMPERFECT = 16  # S/N of 10
 NOISE_NOISY = 48      # S/N of 3
 DISC_SIZE = 0.5
-RING_THICKNESS = 0.5
+RING_THICKNESS = 0.2
 SIZE_2D = 4.
 SIZE_3D = 4.
-SIZE_2D_ANISOTROPIC = (6., 4.)
-SIZE_3D_ANISOTROPIC = (4., 6., 6.)
+SIZE_2D_ANISOTROPIC = (5., 3.)
+SIZE_3D_ANISOTROPIC = (3., 5., 5.)
 
 class RefineTsts(object):
     skip = False
@@ -30,30 +30,31 @@ class RefineTsts(object):
     train_N = 20
     dtype = np.uint8
     signal = SIGNAL
-    repeats = 20
+    repeats = 100
     noise = NOISE_IMPERFECT
-    pos_diff = 2
+    pos_diff = 0.5  # in fraction of size
     train_params = []
     signal_dev = 0.2
     size_dev = 0.2
     const_rtol = 1E-7
     com_pos_atol = 0.1  # tolerance for center-of-mass position test
-    pos_atol_perfect = 0.05
-    pos_atol_imperfect = 0.05
-    pos_atol_noisy = 0.2
-    dimer_bias_atol = 0.1
-    dimer_bias_atol_noisy = 0.2
-    constrained_atol = 0.01
+    precision_perfect = 0.01      # in pixels
+    precision_imperfect = 0.05    # in pixels
+    precision_noisy = 0.1         # in pixels
+    accuracy_perfect = 0.01       # in units of size
+    accuracy_imperfect = 0.01     # in units of size
+    accuracy_noisy = 0.01         # in units of size
+    accuracy_constrained = 0.001  # in units of size
     signal_rtol_perfect = 0.01
     signal_rtol_imperfect = 0.5  # accounting for 10% of noise
     size_rtol_perfect = 0.01
-    size_rtol_imperfect = 0.5   # accounting for 10% of noise
+    size_rtol_imperfect = 0.5    # accounting for 10% of noise
+    train_rtol = 0.05
     bounds = dict(signal=(20, 2000), size=(.9, 9))
 
     @classmethod
     def setUpClass(cls):
         cls.size = validate_tuple(cls.size, cls.ndim)
-        cls.pos_diff = validate_tuple(cls.pos_diff, cls.ndim)
         if not hasattr(cls, 'diameter'):
             cls.diameter = tuple([int(s * 4) for s in cls.size])
         else:
@@ -72,7 +73,7 @@ class RefineTsts(object):
         # cls.atol = [0.1] * len(cls.im.pos_columns)
         cls.bounds = dict()
         if not hasattr(cls, 'param_mode'):
-            cls.param_mode = dict(signal='const', size='const')
+            cls.param_mode = dict(signal='var', size='const')
         if not hasattr(cls, 'feat_kwargs'):
             cls.feat_kwargs = dict()
         if cls.skip:
@@ -266,7 +267,7 @@ class RefineTsts(object):
         # generate random points in a box
         OVERSAMPLING = 10
         N = expected_pos.shape[0]
-        p0_pos_diff = np.array([pos_diff])
+        p0_pos_diff = np.array([self.size]) * pos_diff
         deviations = (np.random.random((OVERSAMPLING*N, self.ndim)) - 0.5) * p0_pos_diff * 2
         # calculate algebraic distance of each deviation
         dist = np.sum((deviations / p0_pos_diff)**2, axis=1)
@@ -317,7 +318,7 @@ class RefineTsts(object):
         actual_pos, actual_signal, actual_size, _ = actual
         expected_pos, expected_signal, expected_size = expected
         cluster_size = deviations.shape[1] // self.ndim
-         # values to be tested
+        # values to be tested
         result = dict()
         # rms absolute positional deviation
         result['pos'] = np.mean(deviations**2)**0.5
@@ -425,6 +426,9 @@ class RefineTsts(object):
         expected_pos, expected_signal, expected_size = expected
         p0_pos = self.gen_p0_coords(expected_pos, pos_diff)
         f0 = self.to_dataframe(p0_pos, self.signal, self.size)
+        # Set an estimate for the background value. Helps convergence,
+        # especially for 3D tests with high noise (tested here: S/N = 3)
+        f0['background'] = noise / 2
 
         actual = refine_leastsq(f0, image, self.diameter, separation=None,
                                 param_mode=dict(self.param_mode, **param_mode),
@@ -518,6 +522,9 @@ class RefineTsts(object):
         expected_center, expected_angle = clusters
         p0_pos = self.gen_p0_coords(expected_pos, pos_diff)
         f0 = self.to_dataframe(p0_pos, self.signal, self.size, cluster_size)
+        # Set an estimate for the background value. Helps convergence,
+        # especially for 3D tests with high noise (tested here: S/N = 3)
+        f0['background'] = noise / 2
 
         actual = refine_leastsq(f0, image, self.diameter, separation=None,
                                 param_mode=dict(self.param_mode, **param_mode),
@@ -583,6 +590,17 @@ class RefineTsts(object):
                                          expected_center, expected_angle)
         return self.compute_deviations_cluster(actual, expected, deviations)
 
+    def test_aa_train(self):
+        # compare the param_val to the feat_kwargs
+        if len(self.param_val) == 0:
+            self.skipTest('No trained parameters for this fit function.')
+        for p in self.param_val:
+            if 'size' in p:
+                continue
+            self.assertLess(abs(1 - self.param_val[p] / self.feat_kwargs[p]),
+                            self.train_rtol)
+
+
     def test_perfect_com(self):
         # sanity check for test
         devs = self.refine_com(signal_dev=0, size_dev=0, noise=0)
@@ -590,28 +608,29 @@ class RefineTsts(object):
 
     def test_perfect_const(self):
         # const signal and size
-        devs = self.refine(signal_dev=0, size_dev=0, noise=0)
+        devs = self.refine(param_mode=dict(signal='const', size='const'),
+                           signal_dev=0, size_dev=0, noise=0)
         if 'signal' not in self.param_val:
             # test this once: constant means constant
             # unless we are in trained mode
             self.assertLess(devs['signal'], self.const_rtol)
         if 'size' not in self.param_val:
             self.assertLess(devs['size'], self.const_rtol)
-        self.assertLess(devs['pos'], self.pos_atol_perfect)
+        self.assertLess(devs['pos'], self.precision_perfect)
 
     def test_perfect_var_signal(self):
         # var signal, const size
-        devs = self.refine(param_mode=dict(signal='var'), noise=0,
+        devs = self.refine(param_mode=dict(signal='var', size='const'), noise=0,
                            signal_dev=self.signal_dev, size_dev=0)
         self.assertLess(devs['signal'], self.signal_rtol_perfect)
-        self.assertLess(devs['pos'], self.pos_atol_perfect)
+        self.assertLess(devs['pos'], self.precision_perfect)
 
     def test_perfect_var_size(self):
         # const signal, var size
-        devs = self.refine(param_mode=dict(size='var'), noise=0,
+        devs = self.refine(param_mode=dict(signal='const', size='var'), noise=0,
                            signal_dev=0, size_dev=self.size_dev)
         self.assertLess(devs['size'], self.size_rtol_perfect)
-        self.assertLess(devs['pos'], self.pos_atol_perfect)
+        self.assertLess(devs['pos'], self.precision_perfect)
 
     def test_perfect_var(self):
         # var signal, var size
@@ -620,26 +639,29 @@ class RefineTsts(object):
                            size_dev=self.size_dev)
         self.assertLess(devs['signal'], self.signal_rtol_perfect)
         self.assertLess(devs['size'], self.size_rtol_perfect)
-        self.assertLess(devs['pos'], self.pos_atol_perfect)
+        self.assertLess(devs['pos'], self.precision_perfect)
 
     def test_imperfect_const(self):
         # const signal and size
-        devs = self.refine(signal_dev=0, size_dev=0, noise=NOISE_IMPERFECT)
-        self.assertLess(devs['pos'], self.pos_atol_imperfect)
+        devs = self.refine(param_mode=dict(signal='const', size='const'),
+                           signal_dev=0, size_dev=0, noise=NOISE_IMPERFECT)
+        self.assertLess(devs['pos'], self.precision_imperfect)
 
     def test_imperfect_var_signal(self):
         # var signal, const size
-        devs = self.refine(param_mode=dict(signal='var'), noise=NOISE_IMPERFECT,
+        devs = self.refine(param_mode=dict(signal='var', size='const'),
+                           noise=NOISE_IMPERFECT,
                            signal_dev=self.signal_dev, size_dev=0)
         self.assertLess(devs['signal'], self.signal_rtol_imperfect)
-        self.assertLess(devs['pos'], self.pos_atol_imperfect)
+        self.assertLess(devs['pos'], self.precision_imperfect)
 
     def test_imperfect_var_size(self):
         # const signal, var size
-        devs = self.refine(param_mode=dict(size='var'), noise=16,
+        devs = self.refine(param_mode=dict(signal='const', size='var'),
+                           noise=NOISE_IMPERFECT,
                            signal_dev=0, size_dev=self.size_dev)
         self.assertLess(devs['size'], self.size_rtol_imperfect)
-        self.assertLess(devs['pos'], self.pos_atol_imperfect)
+        self.assertLess(devs['pos'], self.precision_imperfect)
 
     def test_imperfect_var(self):
         # var signal, var size
@@ -648,89 +670,96 @@ class RefineTsts(object):
                            size_dev=self.size_dev)
         self.assertLess(devs['signal'], self.signal_rtol_imperfect)
         self.assertLess(devs['size'], self.size_rtol_imperfect)
-        self.assertLess(devs['pos'], self.pos_atol_imperfect)
+        self.assertLess(devs['pos'], self.precision_imperfect)
 
     def test_noisy_const(self):
         # const signal and size
-        devs = self.refine(signal_dev=0, size_dev=0, noise=NOISE_NOISY)
-        self.assertLess(devs['pos'], self.pos_atol_noisy)
+        devs = self.refine(param_mode=dict(signal='const', size='const'),
+                           signal_dev=0, size_dev=0, noise=NOISE_NOISY)
+        self.assertLess(devs['pos'], self.precision_noisy)
 
     def test_noisy_var_signal(self):
         # var signal, const size
-        devs = self.refine(param_mode=dict(signal='var'), noise=NOISE_NOISY,
+        devs = self.refine(param_mode=dict(signal='var', size='const'),
+                           noise=NOISE_NOISY,
                            signal_dev=self.signal_dev, size_dev=0)
-        self.assertLess(devs['pos'], self.pos_atol_noisy)
+        self.assertLess(devs['pos'], self.precision_noisy)
 
     def test_noisy_var_size(self):
-        # if self.ndim == 3:
-        #     raise SkipTest('Noisy tests involving size are unstable in 3D')
-        # const signal, var size
-        devs = self.refine(param_mode=dict(size='var'), noise=NOISE_NOISY,
+        devs = self.refine(param_mode=dict(signal='const', size='var'),
+                           noise=NOISE_NOISY,
                            signal_dev=0, size_dev=self.size_dev)
-        self.assertLess(devs['pos'], self.pos_atol_noisy)
+        self.assertLess(devs['pos'], self.precision_noisy)
 
     def test_noisy_var(self):
-        # if self.ndim == 3:
-        #     raise SkipTest('Noisy tests involving size are unstable in 3D')
         # var signal, var size
         devs = self.refine(param_mode=dict(signal='var', size='var'),
                            noise=NOISE_NOISY, signal_dev=self.signal_dev,
                            size_dev=self.size_dev)
-        self.assertLess(devs['pos'], self.pos_atol_noisy)
+        self.assertLess(devs['pos'], self.precision_noisy)
 
     def test_dimer_perfect(self):
         # dimer is defined as such: np.array([[0, -1], [0, 1]]
-        devs = self.refine_cluster(2, hard_radius=1., signal_dev=0, size_dev=0,
-                                   noise=0)
-        self.assertLess(devs['parr_mean'], self.dimer_bias_atol)
-        self.assertLess(devs['perp_rms'], self.pos_atol_perfect)
-        self.assertLess(devs['pos'], self.pos_atol_perfect)
+        devs = self.refine_cluster(2, hard_radius=1., noise=0,
+                                   param_mode=dict(signal='var', size='const'),
+                                   signal_dev=self.signal_dev, size_dev=0)
+        self.assertLess(devs['parr_mean'],
+                        self.accuracy_perfect * max(self.size))
+        self.assertLess(devs['perp_rms'], self.precision_perfect)
 
     def test_var_single(self):
         # dimer is defined as such: np.array([[0, -1], [0, 1]]
-        devs = self.refine_cluster(2, hard_radius=1., signal_dev=0, size_dev=0,
-                                   noise=0, param_mode=dict(signal='cluster'))
-        self.assertLess(devs['parr_mean'], self.dimer_bias_atol)
-        self.assertLess(devs['perp_rms'], self.pos_atol_perfect)
+        devs = self.refine_cluster(2, hard_radius=1., noise=0,
+                                   param_mode=dict(signal='cluster',
+                                                   size='const'),
+                                   signal_dev=self.signal_dev, size_dev=0)
+        self.assertLess(devs['parr_mean'],
+                        self.accuracy_perfect * max(self.size))
+        self.assertLess(devs['perp_rms'], self.precision_perfect)
 
     def test_dimer_imperfect(self):
         # dimer is defined as such: np.array([[0, -1], [0, 1]]
         devs = self.refine_cluster(2, hard_radius=1., noise=NOISE_IMPERFECT,
-                                   signal_dev=self.signal_dev,
-                                   size_dev=self.size_dev)
-        self.assertLess(devs['parr_mean'], self.dimer_bias_atol)
-        self.assertLess(devs['perp_rms'], self.pos_atol_imperfect)
+                                   param_mode=dict(signal='var',
+                                                   size='const'),
+                                   signal_dev=self.signal_dev, size_dev=0)
+        self.assertLess(devs['parr_mean'],
+                        self.accuracy_imperfect * max(self.size))
+        self.assertLess(devs['perp_rms'], self.precision_imperfect)
 
     def test_dimer_noisy(self):
-        # if self.ndim == 3:
-        #     raise SkipTest('Noisy overlap tests are unstable in 3D')
         # dimer is defined as such: np.array([[0, -1], [0, 1]]
         devs = self.refine_cluster(2, hard_radius=1., noise=NOISE_NOISY,
-                                   signal_dev=self.signal_dev,
-                                   size_dev=self.size_dev)
-        self.assertLess(devs['parr_mean'], self.dimer_bias_atol_noisy)
-        self.assertLess(devs['perp_rms'], self.pos_atol_noisy)
+                                   param_mode=dict(signal='var',
+                                                   size='const'),
+                                   signal_dev=self.signal_dev, size_dev=0)
+        self.assertLess(devs['parr_mean'],
+                        self.accuracy_noisy * max(self.size))
+        self.assertLess(devs['perp_rms'], self.precision_noisy)
 
     def test_dimer_constrained(self):
         hard_radius = 1.
         constraints = dimer(2*np.array(self.size)*hard_radius, self.ndim)
 
-        devs = self.refine_cluster(2, hard_radius=hard_radius,
-                                   noise=0, signal_dev=0, size_dev=0,
+        devs = self.refine_cluster(2, hard_radius=hard_radius, noise=0,
+                                   param_mode=dict(signal='var',
+                                                   size='const'),
+                                   signal_dev=self.signal_dev, size_dev=0,
                                    constraints=constraints)
-        self.assertLess(devs['parr_mean'], self.constrained_atol)
-        self.assertLess(devs['perp_rms'], self.pos_atol_perfect)
-        self.assertLess(devs['pos'], self.pos_atol_perfect)
+        self.assertLess(devs['parr_mean'], self.accuracy_constrained * max(self.size))
+        self.assertLess(devs['perp_rms'], self.precision_perfect)
 
     def test_trimer_constrained(self):
         hard_radius = 1.
         constraints = trimer(2*np.array(self.size)*hard_radius, self.ndim)
 
-        devs = self.refine_cluster(3, hard_radius=hard_radius,
-                                   noise=0, signal_dev=0, size_dev=0,
+        devs = self.refine_cluster(3, hard_radius=hard_radius, noise=0,
+                                   param_mode=dict(signal='var',
+                                                   size='const'),
+                                   signal_dev=self.signal_dev, size_dev=0,
                                    constraints=constraints)
 
-        self.assertLess(devs['pos'], self.pos_atol_perfect)
+        self.assertLess(devs['pos'], self.precision_perfect)
 
     def test_tetramer_constrained(self):
         if self.ndim != 3:
@@ -738,11 +767,13 @@ class RefineTsts(object):
         hard_radius = 1.
         constraints = tetramer(2*np.array(self.size)*hard_radius, self.ndim)
 
-        devs = self.refine_cluster(4, hard_radius=hard_radius,
-                                   noise=0, signal_dev=0, size_dev=0,
+        devs = self.refine_cluster(4, hard_radius=hard_radius, noise=0,
+                                   param_mode=dict(signal='var',
+                                                   size='const'),
+                                   signal_dev=self.signal_dev, size_dev=0,
                                    constraints=constraints)
 
-        self.assertLess(devs['pos'], self.pos_atol_perfect)
+        self.assertLess(devs['pos'], self.precision_perfect)
 
 
 class TestFit_gauss2D(RefineTsts, unittest.TestCase):
@@ -771,33 +802,6 @@ class TestFit_gauss3D_a(RefineTsts, unittest.TestCase):
      ndim = 3
      feat_func = 'gauss'
      fit_func = 'gauss'
-
-
-class TestFit_ring2D(RefineTsts, unittest.TestCase):
-    skip_train = False
-    size = SIZE_2D
-    ndim = 2
-    feat_func = 'ring'
-    feat_kwargs = dict(thickness=RING_THICKNESS)
-    fit_func = 'ring'
-
-
-class TestFit_ring2D_a(RefineTsts, unittest.TestCase):
-    skip_train = False
-    size = SIZE_2D_ANISOTROPIC
-    ndim = 2
-    feat_func = 'ring'
-    feat_kwargs = dict(thickness=RING_THICKNESS)
-    fit_func = 'ring'
-
-
-class TestFit_ring3D(RefineTsts, unittest.TestCase):
-    skip_train = False
-    size = SIZE_3D
-    ndim = 3
-    feat_func = 'ring'
-    feat_kwargs = dict(thickness=RING_THICKNESS)
-    fit_func = 'ring'
 
 
 class TestFit_disc2D(RefineTsts, unittest.TestCase):
@@ -836,6 +840,36 @@ class TestFit_disc3D_a(RefineTsts, unittest.TestCase):
     fit_func = 'disc'
 
 
+class TestFit_ring2D(RefineTsts, unittest.TestCase):
+    skip_train = False
+    size = SIZE_2D
+    ndim = 2
+    feat_func = 'ring'
+    feat_kwargs = dict(thickness=RING_THICKNESS)
+    fit_func = 'ring'
+    pos_diff = 0.25
+
+
+class TestFit_ring2D_a(RefineTsts, unittest.TestCase):
+    skip_train = False
+    size = SIZE_2D_ANISOTROPIC
+    ndim = 2
+    feat_func = 'ring'
+    feat_kwargs = dict(thickness=RING_THICKNESS)
+    fit_func = 'ring'
+    pos_diff = 0.25
+
+
+class TestFit_ring3D(RefineTsts, unittest.TestCase):
+    skip_train = False
+    size = SIZE_3D
+    ndim = 3
+    feat_func = 'ring'
+    feat_kwargs = dict(thickness=RING_THICKNESS)
+    fit_func = 'ring'
+    pos_diff = 0.25
+
+
 class TestFit_ring3D_a(RefineTsts, unittest.TestCase):
     skip_train = False
     size = SIZE_3D_ANISOTROPIC
@@ -843,6 +877,7 @@ class TestFit_ring3D_a(RefineTsts, unittest.TestCase):
     feat_func = 'ring'
     feat_kwargs = dict(thickness=RING_THICKNESS)
     fit_func = 'ring'
+    pos_diff = 0.25
 
 
 class TestFit_disc2D_gauss(RefineTsts, unittest.TestCase):
@@ -851,50 +886,9 @@ class TestFit_disc2D_gauss(RefineTsts, unittest.TestCase):
     feat_func = 'disc'
     feat_kwargs = dict(disc_size=DISC_SIZE)
     fit_func = 'gauss'
-    pos_atol_perfect = 0.1
-    dimer_bias_atol = 0.2
-    signal_rtol_perfect = 1
-    signal_rtol_imperfect = 1
-    size_rtol_perfect = 1
-    size_rtol_imperfect = 1
-
-
-class TestFit_disc2D_gauss_a(RefineTsts, unittest.TestCase):
-    size = SIZE_2D_ANISOTROPIC
-    ndim = 2
-    feat_func = 'disc'
-    feat_kwargs = dict(disc_size=DISC_SIZE)
-    fit_func = 'gauss'
-    pos_atol_perfect = 0.1
-    dimer_bias_atol = 0.2
-    signal_rtol_perfect = 1
-    signal_rtol_imperfect = 1
-    size_rtol_perfect = 1
-    size_rtol_imperfect = 1
-
-
-class TestFit_disc3D_gauss(RefineTsts, unittest.TestCase):
-    size = SIZE_3D
-    ndim = 3
-    feat_func = 'disc'
-    feat_kwargs = dict(disc_size=DISC_SIZE)
-    fit_func = 'gauss'
-    pos_atol_perfect = 0.1
-    dimer_bias_atol = 0.2
-    signal_rtol_perfect = 1
-    signal_rtol_imperfect = 1
-    size_rtol_perfect = 1
-    size_rtol_imperfect = 1
-
-
-class TestFit_disc3D_gauss_a(RefineTsts, unittest.TestCase):
-    size = SIZE_3D_ANISOTROPIC
-    ndim = 3
-    feat_func = 'disc'
-    feat_kwargs = dict(disc_size=DISC_SIZE)
-    fit_func = 'gauss'
-    pos_atol_perfect = 0.1
-    dimer_bias_atol = 0.2
+    accuracy_perfect = 0.1
+    accuracy_imperfect = 0.1
+    accuracy_noisy = 0.1
     signal_rtol_perfect = 1
     signal_rtol_imperfect = 1
     size_rtol_perfect = 1
@@ -907,22 +901,9 @@ class TestFit_ring2D_gauss(RefineTsts, unittest.TestCase):
     feat_func = 'ring'
     feat_kwargs = dict(thickness=RING_THICKNESS)
     fit_func = 'gauss'
-    pos_atol_perfect = 0.1
-    dimer_bias_atol = 0.2
-    signal_rtol_perfect = 1
-    signal_rtol_imperfect = 1
-    size_rtol_perfect = 1
-    size_rtol_imperfect = 1
-
-
-class TestFit_ring3D_gauss(RefineTsts, unittest.TestCase):
-    size = SIZE_3D
-    ndim = 3
-    feat_func = 'ring'
-    feat_kwargs = dict(thickness=RING_THICKNESS)
-    fit_func = 'gauss'
-    pos_atol_perfect = 0.1
-    dimer_bias_atol = 0.2
+    accuracy_perfect = 0.1
+    accuracy_imperfect = 0.1
+    accuracy_noisy = 0.1
     signal_rtol_perfect = 1
     signal_rtol_imperfect = 1
     size_rtol_perfect = 1
