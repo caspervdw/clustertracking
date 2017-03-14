@@ -13,7 +13,7 @@ def random_walk(N):
 
 class TestDiffTensor2D(unittest.TestCase):
     def setUp(self):
-        self.N = 2000
+        self.N = 10000
 
     def test_single(self):
         f = pd.DataFrame.from_dict(dict(x=random_walk(self.N),
@@ -49,7 +49,7 @@ class TestDiffTensor2D(unittest.TestCase):
 
 class TestDiffTensor3D(unittest.TestCase):
     def setUp(self):
-        self.N = 2000
+        self.N = 10000
 
     def test_single(self):
         f = pd.DataFrame.from_dict(dict(x=random_walk(self.N),
