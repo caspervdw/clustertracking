@@ -125,8 +125,10 @@ def orientation_df(f, cluster_size=2, mpp=1., ndim=3, sizes=None):
     """
     if ndim == 2:
         orientation_func = _orientation_2d
+        pos_columns = ['y', 'x']
     elif ndim == 3:
         orientation_func = _orientation_3d
+        pos_columns = ['z', 'y', 'x']
 
     if cluster_size == 1:
         permutations = [[0]]
@@ -151,7 +153,7 @@ def orientation_df(f, cluster_size=2, mpp=1., ndim=3, sizes=None):
     for (frame_no, cluster_id), cluster in f.groupby(['frame', 'cluster']):
         frame_no = int(frame_no) - start_i
         if len(cluster) == cluster_size:
-            coords = (cluster[['y', 'x']].values * mpp)[:, ::-1]
+            coords = (cluster[pos_columns].values * mpp)[:, ::-1]
             for i, perm in enumerate(permutations):
                 _com, bases[i, frame_no] = orientation_func(coords[perm], sizes)
             com[frame_no] = _com
