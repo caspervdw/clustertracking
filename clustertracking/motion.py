@@ -16,6 +16,12 @@ def rotation_matrix(axis, theta):
                      [2*(bd+ac), 2*(cd-ab), aa+dd-bb-cc]])
 
 
+def rot_2d(angle):
+    c, s = np.cos(angle), np.sin(angle)
+    return np.array([[c, -s], [s, c]], float)
+
+
+
 def center_of_mass(pos, sizes):
     """Returns the center of mass of a list of positions weighted by
     sizes**ndim"""
@@ -37,7 +43,29 @@ def check_orthonormality(u1, u2, u3):
                                [u3, u2, u1], atol=0.001)
 
 
-def _orientation(pos, sizes):
+def _orientation_2d(pos, sizes):
+    pos = np.atleast_2d(pos)
+    com = center_of_mass(pos, sizes)
+    if len(pos) == 1:
+        raise NotImplemented
+    elif len(pos) == 2:
+        x = pos[0] - com
+        x /= np.linalg.norm(x)
+        x = np.concatenate([x, [0]])
+        z = np.array([0, 0, 1], dtype=np.float)
+    elif len(pos) == 3:
+        raise NotImplemented
+    elif len(pos) == 4:
+        raise NotImplemented
+
+    y = np.cross(z, x)  # right-handed
+    y /= np.linalg.norm(y)
+
+    check_orthonormality(x, y, z)
+    return com, np.array([x, y, z])
+
+
+def _orientation_3d(pos, sizes):
     pos = np.atleast_2d(pos)
     com = center_of_mass(pos, sizes)
     if len(pos) == 1:
@@ -72,7 +100,7 @@ def _orientation(pos, sizes):
     return com, np.array([x, y, z])
 
 
-def orientation_df(f, cluster_size=2, mpp=1., sizes=None):
+def orientation_df(f, cluster_size=2, mpp=1., ndim=3, sizes=None):
     """Calculate the orientation of a dataframe of clusters, given by three
     orthonormal unit vectors.
 
@@ -95,6 +123,11 @@ def orientation_df(f, cluster_size=2, mpp=1., sizes=None):
         - z axis is from center to feature 0
         - x axis is perpendicular to vector from feature 1 to 2 and to z
     """
+    if ndim == 2:
+        orientation_func = _orientation_2d
+    elif ndim == 3:
+        orientation_func = _orientation_3d
+
     if cluster_size == 1:
         permutations = [[0]]
     elif cluster_size == 2:
@@ -118,9 +151,9 @@ def orientation_df(f, cluster_size=2, mpp=1., sizes=None):
     for (frame_no, cluster_id), cluster in f.groupby(['frame', 'cluster']):
         frame_no = int(frame_no) - start_i
         if len(cluster) == cluster_size:
-            coords = (cluster[['z', 'y', 'x']].values * mpp)[:, ::-1]
+            coords = (cluster[['y', 'x']].values * mpp)[:, ::-1]
             for i, perm in enumerate(permutations):
-                _com, bases[i, frame_no] = _orientation(coords[perm], sizes)
+                _com, bases[i, frame_no] = orientation_func(coords[perm], sizes)
             com[frame_no] = _com
     return com, bases
 
