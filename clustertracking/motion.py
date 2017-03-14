@@ -16,12 +16,6 @@ def rotation_matrix(axis, theta):
                      [2*(bd+ac), 2*(cd-ab), aa+dd-bb-cc]])
 
 
-def rot_2d(angle):
-    c, s = np.cos(angle), np.sin(angle)
-    return np.array([[c, -s], [s, c]], float)
-
-
-
 def center_of_mass(pos, sizes):
     """Returns the center of mass of a list of positions weighted by
     sizes**ndim"""
@@ -45,17 +39,18 @@ def check_orthonormality(u1, u2, u3):
 
 def _orientation_2d(pos, sizes):
     pos = np.atleast_2d(pos)
-    com = center_of_mass(pos, sizes)
+    com = np.concatenate([center_of_mass(pos, sizes), [0]])
     if len(pos) == 1:
-        raise NotImplemented
-    elif len(pos) == 2:
-        x = pos[0] - com
+        # generate a random vector in 2d
+        angle = np.random.random() * 2 * np.pi
+        x = np.array([np.cos(angle), np.sin(angle), 0])
+        z = np.array([0, 0, 1], dtype=np.float)
+    elif len(pos) in [2, 3]:
+        x = pos[0] - com[:2]
         x /= np.linalg.norm(x)
         x = np.concatenate([x, [0]])
         z = np.array([0, 0, 1], dtype=np.float)
-    elif len(pos) == 3:
-        raise NotImplemented
-    elif len(pos) == 4:
+    else:
         raise NotImplemented
 
     y = np.cross(z, x)  # right-handed
@@ -92,6 +87,8 @@ def _orientation_3d(pos, sizes):
         z /= np.linalg.norm(z)
         x = np.cross(z, pos[2] - pos[1])
         x /= np.linalg.norm(x)
+    else:
+        raise NotImplemented
 
     y = np.cross(z, x)  # right-handed
     y /= np.linalg.norm(y)
@@ -100,7 +97,7 @@ def _orientation_3d(pos, sizes):
     return com, np.array([x, y, z])
 
 
-def orientation_df(f, cluster_size=2, mpp=1., ndim=3, sizes=None):
+def orientation_df(f, cluster_size=2, mpp=1., ndim=None, sizes=None):
     """Calculate the orientation of a dataframe of clusters, given by three
     orthonormal unit vectors.
 
@@ -123,6 +120,11 @@ def orientation_df(f, cluster_size=2, mpp=1., ndim=3, sizes=None):
         - z axis is from center to feature 0
         - x axis is perpendicular to vector from feature 1 to 2 and to z
     """
+    if ndim is None:
+        if 'z' in f:
+            ndim = 3
+        else:
+            ndim = 2
     if ndim == 2:
         orientation_func = _orientation_2d
         pos_columns = ['y', 'x']
@@ -160,8 +162,8 @@ def orientation_df(f, cluster_size=2, mpp=1., ndim=3, sizes=None):
     return com, bases
 
 
-def diffusion_tensor(positions, orientations, lagtime=1, fps=1., ndim=3):
-    """Calculate the diffusion tensor."""
+def _compute_displ(positions, orientations, lagtime, fps):
+    assert positions.shape[1] == 3
     if orientations.ndim == 3:
         orientations = orientations[np.newaxis]
     all_xjn = []
@@ -181,48 +183,42 @@ def diffusion_tensor(positions, orientations, lagtime=1, fps=1., ndim=3):
         all_xjn.append(x_jn)
 
     all_xjn = np.concatenate(all_xjn, axis=0)
-    tensor = (all_xjn[:, :, np.newaxis] * all_xjn[:, np.newaxis, :]).mean(0) * 0.5 / delta_tjn
+    return delta_tjn, all_xjn
+
+
+def diffusion_tensor(positions, orientations, lagtime=1, fps=1., ndim=3):
+    """Calculate the diffusion tensor."""
+    delta_tjn, all_xjn = _compute_displ(positions, orientations, lagtime, fps)
 
     if ndim == 2:
-        result = np.empty((3, 3))
-        result[:2, :2] = tensor[:2, :2]
-        result[:2, 2] = tensor[:2, 5]
-        result[2, :2] = tensor[5, :2]
-        result[2, 2] = tensor[5, 5]
-        return result
+        all_xjn = all_xjn[:, [0, 1, 5]]  # only x, y transl and z rot
+
+    tensor = (all_xjn[:, :, np.newaxis] * all_xjn[:, np.newaxis, :]).mean(0) * 0.5 / delta_tjn
 
     return tensor
 
 
-def diffusion_tensor_ci(positions, orientations, lagtime=1, fps=1., **kwargs):
+def diffusion_tensor_ci(positions, orientations, lagtime=1, fps=1., ndim=3, **kwargs):
     """Calculate the diffusion tensor and the confidence interval using bootstrap."""
     from scikits import bootstrap
 
-    if orientations.ndim == 3:
-        orientations = orientations[np.newaxis]
-    all_xjn = []
-    delta_tjn = lagtime / fps
-    for bases in orientations:
-        delta_xjn = np.einsum('...ij,...j',
-                              bases[:-lagtime],
-                              positions[lagtime:] - positions[:-lagtime])
-        unit_vectors = np.identity(3)
-        delta_ujn = [0.5 * np.sum([np.cross(unit_vectors[i],
-                                            np.dot(bases[b],
-                                                   bases[b + lagtime, i]))
-                                   for i in range(3)], axis=0)
-                     for b in range(len(bases) - lagtime)]
-        x_jn = np.concatenate([delta_xjn, delta_ujn], axis=1)
-        x_jn = x_jn[np.isfinite(x_jn).all(axis=1)]
-        all_xjn.append(x_jn)
+    delta_tjn, all_xjn = _compute_displ(positions, orientations, lagtime, fps)
+    if ndim == 2:
+        all_xjn = all_xjn[:, [0, 1, 5]]  # only x, y transl and z rot
 
-    all_xjn = np.concatenate(all_xjn, axis=0)
     statfunc = lambda x: (x[:, :, np.newaxis] * x[:, np.newaxis, :]).mean(0).ravel() * 0.5 / delta_tjn
-    return bootstrap.ci(all_xjn, statfunc, **kwargs).reshape((2, 6, 6))
+    result = bootstrap.ci(all_xjn, statfunc, **kwargs)
+
+    if ndim == 2:
+        result = result.reshape((2, 3, 3))
+    else:
+        result = result.reshape((2, 6, 6))
+    return result
 
 
 def friction_tensor(diff_tens):
     """Convert diffusion tensor to friction tensor.
 
     For physical units, multiply the result with  eta / (kB T)"""
-    return np.linalg.inv(diff_tens.reshape((6, 6)))
+    shape = (int(diff_tens.size**0.5),) * 2
+    return np.linalg.inv(diff_tens.reshape(shape))
