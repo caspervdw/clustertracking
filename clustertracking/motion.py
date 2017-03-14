@@ -158,7 +158,7 @@ def orientation_df(f, cluster_size=2, mpp=1., ndim=3, sizes=None):
     return com, bases
 
 
-def diffusion_tensor(positions, orientations, lagtime=1, fps=1.):
+def diffusion_tensor(positions, orientations, lagtime=1, fps=1., ndim=3):
     """Calculate the diffusion tensor."""
     if orientations.ndim == 3:
         orientations = orientations[np.newaxis]
@@ -179,8 +179,17 @@ def diffusion_tensor(positions, orientations, lagtime=1, fps=1.):
         all_xjn.append(x_jn)
 
     all_xjn = np.concatenate(all_xjn, axis=0)
-    result = (all_xjn[:, :, np.newaxis] * all_xjn[:, np.newaxis, :]).mean(0) * 0.5 / delta_tjn
-    return result
+    tensor = (all_xjn[:, :, np.newaxis] * all_xjn[:, np.newaxis, :]).mean(0) * 0.5 / delta_tjn
+
+    if ndim == 2:
+        result = np.empty((3, 3))
+        result[:2, :2] = tensor[:2, :2]
+        result[:2, 2] = tensor[:2, 5]
+        result[2, :2] = tensor[5, :2]
+        result[2, 2] = tensor[5, 5]
+        return result
+
+    return tensor
 
 
 def diffusion_tensor_ci(positions, orientations, lagtime=1, fps=1., **kwargs):
